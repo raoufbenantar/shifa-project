@@ -8,7 +8,8 @@ class Appointment(models.Model):
     STATUS_CHOICES = [
         ('pending', 'Pending'),
         ('confirmed', 'Confirmed'),
-        ('done', 'Done'),
+        ('completed', 'Completed'),
+        ('rejected', 'Rejected'),
         ('canceled', 'Canceled'),
     ]
 
@@ -19,9 +20,6 @@ class Appointment(models.Model):
     consultation_type = models.CharField(max_length=20, choices=CONSULTATION_TYPES, default='in_person')
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
     notes = models.TextField(blank=True, null=True)
-
-    class Meta:
-        unique_together = ('doctor', 'scheduled_datetime')
 
     def __str__(self):
         return f"{self.patient.full_name} → Dr.{self.doctor.full_name} on {self.scheduled_datetime}"
