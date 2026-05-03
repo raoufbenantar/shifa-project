@@ -56,6 +56,7 @@ class DoctorAvailability(models.Model):
     day_of_week = models.CharField(max_length=3, choices=DAY_CHOICES)
     start_time = models.TimeField()
     end_time = models.TimeField()
+    slot_duration_minutes = models.PositiveIntegerField(default=30)
 
     class Meta:
         unique_together = ('doctor', 'clinic', 'day_of_week')

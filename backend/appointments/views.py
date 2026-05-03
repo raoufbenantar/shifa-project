@@ -1,11 +1,16 @@
+from datetime import datetime, timedelta
 from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
+from django.utils.dateparse import parse_date
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import viewsets, filters, status
 from rest_framework.decorators import action
+from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework_simplejwt.backends import TokenBackend
+from doctors.models import DoctorAvailability
+from patients.models import PatientProfile
 from users.permissions import IsAdminOrDoctor, IsAuthenticated, get_role_from_request
 from .models import Appointment, AppointmentStatusHistory, Review
 from .serializers import AppointmentSerializer, AppointmentStatusHistorySerializer, ReviewSerializer
@@ -31,12 +36,52 @@ class AppointmentViewSet(viewsets.ModelViewSet):
     filterset_fields = ['status', 'consultation_type', 'doctor', 'patient', 'clinic']
     search_fields = ['patient__full_name', 'doctor__full_name']
 
+    def get_queryset(self):
+        queryset = Appointment.objects.all()
+        role = get_role_from_request(self.request)
+        user_id = get_user_id_from_request(self.request)
+
+        if role == 'admin':
+            return queryset
+        if role == 'doctor':
+            return queryset.filter(doctor__user_id=user_id)
+        if role == 'patient':
+            return queryset.filter(patient__user_id=user_id)
+        return queryset.none()
+
     def get_permissions(self):
+        if self.action == 'available_slots':
+            return [AllowAny()]
         if self.action == 'create':
             return [IsAuthenticated()]  # any logged in user can book
-        if self.action in ['list', 'retrieve']:
+        if self.action in ['list', 'retrieve', 'cancel', 'reschedule']:
             return [IsAuthenticated()]
         return [IsAdminOrDoctor()]  # only admin/doctor can update/delete
+
+    def create(self, request, *args, **kwargs):
+        role = get_role_from_request(request)
+        if role == 'doctor':
+            return Response(
+                {'error': 'Doctors cannot book appointments as patients.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        data = request.data.copy()
+        if role == 'patient':
+            try:
+                patient = PatientProfile.objects.get(user_id=get_user_id_from_request(request))
+            except PatientProfile.DoesNotExist:
+                return Response(
+                    {'error': 'Patient profile is required before booking.'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            data['patient'] = patient.id
+
+        serializer = self.get_serializer(data=data)
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+        headers = self.get_success_headers(serializer.data)
+        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
     def _can_doctor_manage_appointment(self, request, appointment):
         role = get_role_from_request(request)
@@ -68,6 +113,41 @@ class AppointmentViewSet(viewsets.ModelViewSet):
             old_status=old_status,
             new_status=new_status,
         )
+
+    def _build_slot_datetime(self, appointment_date, appointment_time):
+        slot_datetime = datetime.combine(appointment_date, appointment_time)
+        if settings.USE_TZ:
+            slot_datetime = timezone.make_aware(slot_datetime, timezone.get_current_timezone())
+        return slot_datetime
+
+    def _serialize_available_slots(self, doctor_id, clinic_id, appointment_date):
+        day_of_week = appointment_date.strftime('%a')
+        active_appointment_times = set(
+            Appointment.objects.filter(
+                doctor_id=doctor_id,
+                clinic_id=clinic_id,
+                scheduled_datetime__date=appointment_date,
+                status__in=AppointmentSerializer.ACTIVE_BOOKING_STATUSES,
+            ).values_list('scheduled_datetime', flat=True)
+        )
+        slots = []
+        for availability in DoctorAvailability.objects.filter(
+            doctor_id=doctor_id,
+            clinic_id=clinic_id,
+            day_of_week=day_of_week,
+        ).order_by('start_time'):
+            slot_datetime = self._build_slot_datetime(appointment_date, availability.start_time)
+            availability_end = self._build_slot_datetime(appointment_date, availability.end_time)
+            slot_duration = timedelta(minutes=availability.slot_duration_minutes)
+
+            while slot_datetime + slot_duration <= availability_end:
+                if slot_datetime > timezone.now() and slot_datetime not in active_appointment_times:
+                    slots.append({
+                        'scheduled_datetime': slot_datetime.isoformat(),
+                        'time': slot_datetime.strftime('%H:%M'),
+                    })
+                slot_datetime += slot_duration
+        return slots
 
     def _change_pending_status(self, request, appointment, new_status):
         if not self._can_doctor_manage_appointment(request, appointment):
@@ -173,6 +253,26 @@ class AppointmentViewSet(viewsets.ModelViewSet):
                 self._record_status_change(appointment, old_status, 'pending')
 
         return Response(serializer.data)
+
+    @action(detail=False, methods=['get'], url_path='available-slots')
+    def available_slots(self, request):
+        doctor_id = request.query_params.get('doctor')
+        clinic_id = request.query_params.get('clinic')
+        appointment_date = parse_date(request.query_params.get('date', ''))
+
+        if not doctor_id or not clinic_id or not appointment_date:
+            return Response(
+                {'error': 'doctor, clinic, and date query parameters are required.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        slots = self._serialize_available_slots(doctor_id, clinic_id, appointment_date)
+        return Response({
+            'doctor': doctor_id,
+            'clinic': clinic_id,
+            'date': appointment_date.isoformat(),
+            'slots': slots,
+        })
 
 
 class AppointmentStatusHistoryViewSet(viewsets.ModelViewSet):

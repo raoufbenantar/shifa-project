@@ -1,3 +1,4 @@
+from datetime import datetime, timedelta
 from rest_framework import serializers
 from django.db.models import Q
 from django.utils import timezone
@@ -47,18 +48,19 @@ class AppointmentSerializer(serializers.ModelSerializer):
                 'clinic': 'This doctor is not assigned to the selected clinic on this date.'
             })
 
-        day_of_week = scheduled_datetime.strftime('%a')
-        appointment_time = scheduled_datetime.time()
-        is_available = DoctorAvailability.objects.filter(
+        matching_availability = self._get_matching_availability(
             doctor=doctor,
             clinic=clinic,
-            day_of_week=day_of_week,
-            start_time__lte=appointment_time,
-            end_time__gt=appointment_time,
-        ).exists()
-        if not is_available:
+            scheduled_datetime=scheduled_datetime,
+        )
+        if not matching_availability:
             raise serializers.ValidationError({
-                'scheduled_datetime': 'This time is outside the doctor availability.'
+                'scheduled_datetime': 'Choose one of the available appointment time slots.'
+            })
+
+        if not self._matches_slot_start(scheduled_datetime, matching_availability):
+            raise serializers.ValidationError({
+                'scheduled_datetime': 'Choose one of the available appointment time slots.'
             })
 
         conflicting_appointments = Appointment.objects.filter(
@@ -74,6 +76,37 @@ class AppointmentSerializer(serializers.ModelSerializer):
             })
 
         return attrs
+
+    def _get_matching_availability(self, doctor, clinic, scheduled_datetime):
+        day_of_week = scheduled_datetime.strftime('%a')
+        appointment_time = scheduled_datetime.time()
+        return DoctorAvailability.objects.filter(
+            doctor=doctor,
+            clinic=clinic,
+            day_of_week=day_of_week,
+            start_time__lte=appointment_time,
+            end_time__gt=appointment_time,
+        ).first()
+
+    def _matches_slot_start(self, scheduled_datetime, availability):
+        appointment_date = scheduled_datetime.date()
+        availability_start = datetime.combine(appointment_date, availability.start_time)
+        availability_end = datetime.combine(appointment_date, availability.end_time)
+        slot_start = scheduled_datetime.replace(second=0, microsecond=0)
+        if timezone.is_aware(scheduled_datetime):
+            current_timezone = timezone.get_current_timezone()
+            availability_start = timezone.make_aware(availability_start, current_timezone)
+            availability_end = timezone.make_aware(availability_end, current_timezone)
+
+        if scheduled_datetime != slot_start:
+            return False
+
+        slot_duration = timedelta(minutes=availability.slot_duration_minutes)
+        if slot_start + slot_duration > availability_end:
+            return False
+
+        elapsed = slot_start - availability_start
+        return elapsed.total_seconds() % slot_duration.total_seconds() == 0
 
     def create(self, validated_data):
         validated_data['status'] = 'pending'
