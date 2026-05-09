@@ -2,7 +2,7 @@ from datetime import datetime, timedelta
 from rest_framework import serializers
 from django.db.models import Q
 from django.utils import timezone
-from .models import Appointment, AppointmentStatusHistory, Review
+from .models import Appointment, AppointmentMessage, AppointmentStatusHistory, Review
 from doctors.models import DoctorAvailability, DoctorClinic
 from doctors.serializers import DoctorSerializer
 from patients.serializers import PatientSerializer
@@ -117,7 +117,33 @@ class AppointmentStatusHistorySerializer(serializers.ModelSerializer):
         model = AppointmentStatusHistory
         fields = '__all__'
 
+
+class AppointmentMessageSerializer(serializers.ModelSerializer):
+    sender_email = serializers.EmailField(source='sender.email', read_only=True)
+
+    class Meta:
+        model = AppointmentMessage
+        fields = ['id', 'appointment', 'sender', 'sender_email', 'message', 'is_read', 'created_at']
+        read_only_fields = ['sender', 'sender_email', 'is_read', 'created_at']
+
+    def validate_message(self, message):
+        message = message.strip()
+        if not message:
+            raise serializers.ValidationError('Message cannot be empty.')
+        return message
+
+    def validate_appointment(self, appointment):
+        if appointment.status != 'completed':
+            raise serializers.ValidationError('Text chat is only available after the appointment is completed.')
+        return appointment
+
+
 class ReviewSerializer(serializers.ModelSerializer):
     class Meta:
         model = Review
         fields = '__all__'
+
+    def validate_appointment(self, appointment):
+        if appointment.status != 'completed':
+            raise serializers.ValidationError('Reviews can only be created for completed appointments.')
+        return appointment

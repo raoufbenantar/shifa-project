@@ -11,9 +11,15 @@ from rest_framework.response import Response
 from rest_framework_simplejwt.backends import TokenBackend
 from doctors.models import DoctorAvailability
 from patients.models import PatientProfile
+from users.models import User
 from users.permissions import IsAdminOrDoctor, IsAuthenticated, get_role_from_request
-from .models import Appointment, AppointmentStatusHistory, Review
-from .serializers import AppointmentSerializer, AppointmentStatusHistorySerializer, ReviewSerializer
+from .models import Appointment, AppointmentMessage, AppointmentStatusHistory, Review
+from .serializers import (
+    AppointmentMessageSerializer,
+    AppointmentSerializer,
+    AppointmentStatusHistorySerializer,
+    ReviewSerializer,
+)
 
 
 def get_user_id_from_request(request):
@@ -283,6 +289,41 @@ class AppointmentStatusHistoryViewSet(viewsets.ModelViewSet):
 
     def get_permissions(self):
         return [IsAdminOrDoctor()]
+
+
+class AppointmentMessageViewSet(viewsets.ModelViewSet):
+    queryset = AppointmentMessage.objects.select_related('appointment', 'sender')
+    serializer_class = AppointmentMessageSerializer
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ['appointment', 'is_read']
+
+    def get_permissions(self):
+        return [IsAuthenticated()]
+
+    def get_queryset(self):
+        queryset = AppointmentMessage.objects.select_related('appointment', 'sender')
+        role = get_role_from_request(self.request)
+        user_id = get_user_id_from_request(self.request)
+
+        if role == 'admin':
+            return queryset
+        if role == 'doctor':
+            return queryset.filter(appointment__doctor__user_id=user_id)
+        if role == 'patient':
+            return queryset.filter(appointment__patient__user_id=user_id)
+        return queryset.none()
+
+    def perform_create(self, serializer):
+        user = User.objects.get(id=get_user_id_from_request(self.request))
+        serializer.save(sender=user)
+
+    @action(detail=True, methods=['post'], url_path='mark-read')
+    def mark_read(self, request, pk=None):
+        message = self.get_object()
+        if message.sender_id != get_user_id_from_request(request):
+            message.is_read = True
+            message.save(update_fields=['is_read'])
+        return Response(self.get_serializer(message).data)
 
 
 class ReviewViewSet(viewsets.ModelViewSet):

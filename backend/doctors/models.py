@@ -58,8 +58,5 @@ class DoctorAvailability(models.Model):
     end_time = models.TimeField()
     slot_duration_minutes = models.PositiveIntegerField(default=30)
 
-    class Meta:
-        unique_together = ('doctor', 'clinic', 'day_of_week')
-
     def __str__(self):
         return f"Dr. {self.doctor.full_name} - {self.day_of_week} ({self.start_time}-{self.end_time})"

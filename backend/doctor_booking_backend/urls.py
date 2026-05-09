@@ -6,7 +6,7 @@ from rest_framework_simplejwt.views import TokenRefreshView
 from users.views import RegisterView, LoginView, LogoutView, MeView, RoleViewSet
 from doctors.views import DoctorViewSet, ClinicViewSet, DoctorClinicViewSet, DoctorAvailabilityViewSet
 from patients.views import PatientViewSet
-from appointments.views import AppointmentViewSet, AppointmentStatusHistoryViewSet, ReviewViewSet
+from appointments.views import AppointmentMessageViewSet, AppointmentViewSet, AppointmentStatusHistoryViewSet, ReviewViewSet
 from medical_records.views import (MedicalRecordViewSet, ConsultationViewSet, DiagnosisViewSet,
     MedicationViewSet, PrescriptionViewSet, AttachmentViewSet)
 
@@ -19,6 +19,7 @@ router.register(r'doctor-availability', DoctorAvailabilityViewSet)
 router.register(r'patients', PatientViewSet)
 router.register(r'appointments', AppointmentViewSet)
 router.register(r'appointment-history', AppointmentStatusHistoryViewSet)
+router.register(r'appointment-messages', AppointmentMessageViewSet)
 router.register(r'reviews', ReviewViewSet)
 router.register(r'medical-records', MedicalRecordViewSet)
 router.register(r'consultations', ConsultationViewSet)
