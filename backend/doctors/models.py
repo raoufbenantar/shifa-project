@@ -2,6 +2,12 @@ from django.db import models
 from users.models import User
 
 class DoctorProfile(models.Model):
+    VERIFICATION_STATUS = [
+        ('pending', 'Pending'),
+        ('approved', 'Approved'),
+        ('rejected', 'Rejected'),
+    ]
+
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='doctor_profile')
     full_name = models.CharField(max_length=100)
     specialization = models.CharField(max_length=100)
@@ -11,14 +17,15 @@ class DoctorProfile(models.Model):
     image = models.ImageField(upload_to='doctors/images/', blank=True, null=True)
     license_number = models.CharField(max_length=50, unique=True)
     is_active = models.BooleanField(default=True)
+    is_verified = models.BooleanField(default=False)
+    verification_status = models.CharField(max_length=20, choices=VERIFICATION_STATUS, default='pending')
+    rejection_reason = models.TextField(blank=True, null=True)
 
     def __str__(self):
         return f"Dr. {self.full_name} - {self.specialization}"
 
-
 class Clinic(models.Model):
     CLINIC_TYPES = [('private', 'Private'), ('hospital', 'Hospital'), ('center', 'Medical Center')]
-
     name = models.CharField(max_length=150)
     address_text = models.TextField()
     city = models.CharField(max_length=100)
@@ -30,7 +37,6 @@ class Clinic(models.Model):
 
     def __str__(self):
         return f"{self.name} - {self.city}"
-
 
 class DoctorClinic(models.Model):
     doctor = models.ForeignKey(DoctorProfile, on_delete=models.CASCADE, related_name='clinics')
@@ -44,13 +50,11 @@ class DoctorClinic(models.Model):
     def __str__(self):
         return f"Dr. {self.doctor.full_name} @ {self.clinic.name}"
 
-
 class DoctorAvailability(models.Model):
     DAY_CHOICES = [
         ('Mon', 'Monday'), ('Tue', 'Tuesday'), ('Wed', 'Wednesday'),
         ('Thu', 'Thursday'), ('Fri', 'Friday'), ('Sat', 'Saturday'), ('Sun', 'Sunday'),
     ]
-
     doctor = models.ForeignKey(DoctorProfile, on_delete=models.CASCADE, related_name='availability')
     clinic = models.ForeignKey(Clinic, on_delete=models.CASCADE, related_name='availability')
     day_of_week = models.CharField(max_length=3, choices=DAY_CHOICES)
