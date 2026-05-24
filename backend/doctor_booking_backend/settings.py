@@ -43,6 +43,9 @@ INSTALLED_APPS = [
     'patients.apps.PatientsConfig',
     'appointments.apps.AppointmentsConfig',
     'medical_records',
+    'notifications',
+    'chat',
+    'channels',
     'rest_framework_simplejwt.token_blacklist',
 
     # ... default django apps ...
@@ -155,4 +158,15 @@ SIMPLE_JWT = {
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [],
     'DEFAULT_PERMISSION_CLASSES': [],
+}
+
+# Channels
+ASGI_APPLICATION = 'doctor_booking_backend.asgi.application'
+CHANNEL_LAYERS = {
+    'default': {
+        'BACKEND': 'channels_redis.core.RedisChannelLayer',
+        'CONFIG': {
+            'hosts': [('127.0.0.1', 6379)],
+        },
+    },
 }
