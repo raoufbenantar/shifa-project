@@ -8,7 +8,13 @@ from rest_framework_simplejwt.backends import TokenBackend
 from django.conf import settings
 from django.contrib.auth.hashers import check_password
 from .models import User, Role
-from .serializers import RegisterSerializer, UserSerializer, RoleSerializer
+from .serializers import (
+    DoctorRegisterSerializer,
+    PatientRegisterSerializer,
+    RegisterSerializer,
+    RoleSerializer,
+    UserSerializer,
+)
 
 
 def get_tokens_for_user(user):
@@ -19,6 +25,52 @@ def get_tokens_for_user(user):
     return {
         'refresh': str(refresh),
         'access': str(refresh.access_token),
+    }
+
+
+def get_user_payload(user):
+    role_name = user.role.name if user.role else None
+    frontend_role_id = {'patient': 1, 'doctor': 2, 'admin': 3}.get(role_name, user.role_id)
+    profile = {}
+    if role_name == 'patient' and hasattr(user, 'patient_profile'):
+        patient = user.patient_profile
+        profile = {
+            'id': patient.id,
+            'full_name': patient.full_name,
+            'phone_number': patient.phone_number,
+            'date_of_birth': patient.date_of_birth.isoformat() if patient.date_of_birth else None,
+            'national_id': patient.national_id,
+        }
+    if role_name == 'doctor' and hasattr(user, 'doctor_profile'):
+        doctor = user.doctor_profile
+        profile = {
+            'id': doctor.id,
+            'full_name': doctor.full_name,
+            'phone_number': doctor.phone_number,
+            'specialization': doctor.specialization,
+            'experience_years': doctor.experience_years,
+            'consultation_fee': float(doctor.consultation_fee),
+            'bio': doctor.bio or '',
+            'license_number': doctor.license_number,
+            'image': doctor.image.url if doctor.image else None,
+        }
+    return {
+        'id': user.id,
+        'email': user.email,
+        'role_id': frontend_role_id,
+        'role': role_name,
+        'is_active': user.is_active,
+        'profile': profile,
+    }
+
+
+def get_auth_response(user):
+    tokens = get_tokens_for_user(user)
+    return {
+        'token': tokens['access'],
+        'access': tokens['access'],
+        'refresh': tokens['refresh'],
+        'user': get_user_payload(user),
     }
 
 
@@ -42,11 +94,29 @@ class RegisterView(APIView):
         serializer = RegisterSerializer(data=request.data)
         if serializer.is_valid():
             user = serializer.save()
-            tokens = get_tokens_for_user(user)
-            return Response({
-                'user': UserSerializer(user).data,
-                **tokens,
-            }, status=status.HTTP_201_CREATED)
+            return Response(get_auth_response(user), status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class PatientRegisterView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        serializer = PatientRegisterSerializer(data=request.data)
+        if serializer.is_valid():
+            user = serializer.save()
+            return Response(get_auth_response(user), status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class DoctorRegisterView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        serializer = DoctorRegisterSerializer(data=request.data)
+        if serializer.is_valid():
+            user = serializer.save()
+            return Response(get_auth_response(user), status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -64,8 +134,7 @@ class LoginView(APIView):
             return Response({'error': 'Invalid credentials'}, status=status.HTTP_401_UNAUTHORIZED)
         if not user.is_active:
             return Response({'error': 'Account is disabled'}, status=status.HTTP_403_FORBIDDEN)
-        tokens = get_tokens_for_user(user)
-        return Response({'user': UserSerializer(user).data, **tokens})
+        return Response(get_auth_response(user))
 
 
 class LogoutView(APIView):
@@ -89,7 +158,7 @@ class MeView(APIView):
             return Response({'error': 'Invalid or missing token'}, status=status.HTTP_401_UNAUTHORIZED)
         try:
             user = User.objects.get(id=payload['user_id'])
-            return Response(UserSerializer(user).data)
+            return Response(get_user_payload(user))
         except User.DoesNotExist:
             return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
 

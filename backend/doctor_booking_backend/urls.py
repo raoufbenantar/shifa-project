@@ -2,7 +2,15 @@ from django.contrib import admin
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from rest_framework_simplejwt.views import TokenRefreshView
-from users.views import RegisterView, LoginView, LogoutView, MeView, RoleViewSet
+from users.views import (
+    DoctorRegisterView,
+    LoginView,
+    LogoutView,
+    MeView,
+    PatientRegisterView,
+    RegisterView,
+    RoleViewSet,
+)
 from doctors.views import DoctorViewSet, ClinicViewSet, DoctorClinicViewSet, DoctorAvailabilityViewSet
 from patients.views import PatientViewSet
 from appointments.views import AppointmentMessageViewSet, AppointmentViewSet, AppointmentStatusHistoryViewSet, ReviewViewSet
@@ -34,6 +42,8 @@ router.register(r'chat', ChatRoomViewSet, basename='chat')
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/auth/register/', RegisterView.as_view()),
+    path('api/auth/register/patient/', PatientRegisterView.as_view()),
+    path('api/auth/register/doctor/', DoctorRegisterView.as_view()),
     path('api/auth/login/', LoginView.as_view()),
     path('api/auth/logout/', LogoutView.as_view()),
     path('api/auth/me/', MeView.as_view()),
