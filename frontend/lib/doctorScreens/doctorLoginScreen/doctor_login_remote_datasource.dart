@@ -1,3 +1,9 @@
+import 'dart:convert';
+
+import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:shifa/core/api_config.dart';
+
 import 'doctor_model.dart';
 
 // ─────────────────────────────────────────────────────────────
@@ -64,5 +70,38 @@ class DoctorLoginRemoteDataSourceMock implements DoctorLoginRemoteDataSource {
     //   return DoctorModel.fromJson(jsonDecode(response.body));
     // }
     // throw Exception(jsonDecode(response.body)['message'] ?? 'Login failed');
+  }
+}
+
+class DoctorLoginRemoteDataSourceImpl implements DoctorLoginRemoteDataSource {
+  final http.Client _client;
+
+  DoctorLoginRemoteDataSourceImpl({http.Client? client}) : _client = client ?? http.Client();
+
+  @override
+  Future<DoctorModel> loginDoctor({
+    required String email,
+    required String password,
+  }) async {
+    final response = await _client.post(
+      Uri.parse('${ApiConfig.baseUrl}/auth/login/'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'email': email,
+        'password': password,
+      }),
+    );
+
+    final data = jsonDecode(response.body) as Map<String, dynamic>;
+    if (response.statusCode != 200) {
+      throw Exception(data['error'] ?? 'Login failed');
+    }
+
+    final doctor = DoctorModel.fromJson(data);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('access', data['access'] as String? ?? doctor.token);
+    await prefs.setString('refresh', data['refresh'] as String? ?? '');
+    await prefs.setString('role', data['user']['role'] as String? ?? 'doctor');
+    return doctor;
   }
 }

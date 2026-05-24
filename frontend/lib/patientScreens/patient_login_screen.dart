@@ -78,7 +78,7 @@ class PatientLoginScreen extends StatelessWidget {
       create: (_) => LoginBloc(
         LoginUseCase(
           LoginRepositoryImpl(
-            LoginRemoteDataSourceMock(), // swap → LoginRemoteDataSourceImpl
+            LoginRemoteDataSourceImpl(),
           ),
         ),
       ),

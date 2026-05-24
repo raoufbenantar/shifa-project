@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:shifa/homeScreen/role_card.dart';
 import 'package:shifa/homeScreen/user_role.dart';
-import '../PatientRegister/patient_login_screen.dart';
 import '../doctorScreens/doctorLoginScreen/doctor_login_screen.dart';
+import '../patientScreens/patient_login_screen.dart';
 
 import '../theme/app_colors.dart';
 import '../theme/app_text_styles.dart';

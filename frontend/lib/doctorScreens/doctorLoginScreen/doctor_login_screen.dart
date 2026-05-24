@@ -77,7 +77,7 @@ class DoctorLoginScreen extends StatelessWidget {
       create: (_) => DoctorLoginBloc(
         DoctorLoginUseCase(
           DoctorLoginRepositoryImpl(
-            DoctorLoginRemoteDataSourceMock(), // swap → real datasource
+            DoctorLoginRemoteDataSourceImpl(),
           ),
         ),
       ),
