@@ -13,6 +13,7 @@ from doctors.models import DoctorAvailability
 from patients.models import PatientProfile
 from users.models import User
 from users.permissions import IsAdminOrDoctor, IsAuthenticated, get_role_from_request
+from notifications.utils import send_notification
 from .models import Appointment, AppointmentMessage, AppointmentStatusHistory, Review
 from .serializers import (
     AppointmentMessageSerializer,
@@ -59,10 +60,10 @@ class AppointmentViewSet(viewsets.ModelViewSet):
         if self.action == 'available_slots':
             return [AllowAny()]
         if self.action == 'create':
-            return [IsAuthenticated()]  # any logged in user can book
+            return [IsAuthenticated()]
         if self.action in ['list', 'retrieve', 'cancel', 'reschedule']:
             return [IsAuthenticated()]
-        return [IsAdminOrDoctor()]  # only admin/doctor can update/delete
+        return [IsAdminOrDoctor()]
 
     def create(self, request, *args, **kwargs):
         role = get_role_from_request(request)
@@ -85,7 +86,16 @@ class AppointmentViewSet(viewsets.ModelViewSet):
 
         serializer = self.get_serializer(data=data)
         serializer.is_valid(raise_exception=True)
-        self.perform_create(serializer)
+        appointment = serializer.save()
+
+        # Notify doctor about new appointment
+        send_notification(
+            user=appointment.doctor.user,
+            title='New Appointment Request',
+            body=f'You have a new appointment request from {appointment.patient.full_name} on {appointment.scheduled_datetime.strftime("%Y-%m-%d %H:%M")}.',
+            notif_type='appointment_status'
+        )
+
         headers = self.get_success_headers(serializer.data)
         return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
@@ -174,6 +184,22 @@ class AppointmentViewSet(viewsets.ModelViewSet):
             appointment.save(update_fields=['status'])
             self._record_status_change(appointment, old_status, new_status)
 
+        # Notify patient
+        if new_status == 'confirmed':
+            send_notification(
+                user=appointment.patient.user,
+                title='Appointment Confirmed',
+                body=f'Your appointment with Dr. {appointment.doctor.full_name} on {appointment.scheduled_datetime.strftime("%Y-%m-%d %H:%M")} has been confirmed.',
+                notif_type='appointment_status'
+            )
+        elif new_status == 'rejected':
+            send_notification(
+                user=appointment.patient.user,
+                title='Appointment Rejected',
+                body=f'Your appointment with Dr. {appointment.doctor.full_name} on {appointment.scheduled_datetime.strftime("%Y-%m-%d %H:%M")} has been rejected.',
+                notif_type='appointment_status'
+            )
+
         return Response(self.get_serializer(appointment).data)
 
     @action(detail=True, methods=['post'])
@@ -213,6 +239,23 @@ class AppointmentViewSet(viewsets.ModelViewSet):
             appointment.save(update_fields=['status'])
             self._record_status_change(appointment, old_status, 'canceled')
 
+        # Notify the other party
+        role = get_role_from_request(request)
+        if role == 'patient':
+            send_notification(
+                user=appointment.doctor.user,
+                title='Appointment Canceled',
+                body=f'Patient {appointment.patient.full_name} has canceled their appointment on {appointment.scheduled_datetime.strftime("%Y-%m-%d %H:%M")}.',
+                notif_type='appointment_status'
+            )
+        else:
+            send_notification(
+                user=appointment.patient.user,
+                title='Appointment Canceled',
+                body=f'Your appointment with Dr. {appointment.doctor.full_name} on {appointment.scheduled_datetime.strftime("%Y-%m-%d %H:%M")} has been canceled.',
+                notif_type='appointment_status'
+            )
+
         return Response(self.get_serializer(appointment).data)
 
     @action(detail=True, methods=['post'])
@@ -242,9 +285,7 @@ class AppointmentViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        data = {
-            'scheduled_datetime': request.data.get('scheduled_datetime'),
-        }
+        data = {'scheduled_datetime': request.data.get('scheduled_datetime')}
         for optional_field in ['clinic', 'consultation_type', 'notes']:
             if optional_field in request.data:
                 data[optional_field] = request.data.get(optional_field)
@@ -257,6 +298,14 @@ class AppointmentViewSet(viewsets.ModelViewSet):
             serializer.save(status='pending')
             if old_status != 'pending':
                 self._record_status_change(appointment, old_status, 'pending')
+
+        # Notify doctor about reschedule
+        send_notification(
+            user=appointment.doctor.user,
+            title='Appointment Rescheduled',
+            body=f'Appointment with {appointment.patient.full_name} has been rescheduled to {appointment.scheduled_datetime.strftime("%Y-%m-%d %H:%M")}.',
+            notif_type='appointment_status'
+        )
 
         return Response(serializer.data)
 
@@ -315,7 +364,26 @@ class AppointmentMessageViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         user = User.objects.get(id=get_user_id_from_request(self.request))
-        serializer.save(sender=user)
+        message = serializer.save(sender=user)
+
+        # Notify the other party
+        appointment = message.appointment
+        if user.id == appointment.patient.user_id:
+            # Patient sent message → notify doctor
+            send_notification(
+                user=appointment.doctor.user,
+                title='New Message',
+                body=f'You have a new message from {appointment.patient.full_name} regarding appointment on {appointment.scheduled_datetime.strftime("%Y-%m-%d %H:%M")}.',
+                notif_type='new_message'
+            )
+        else:
+            # Doctor sent message → notify patient
+            send_notification(
+                user=appointment.patient.user,
+                title='New Message',
+                body=f'Dr. {appointment.doctor.full_name} sent you a message regarding your appointment on {appointment.scheduled_datetime.strftime("%Y-%m-%d %H:%M")}.',
+                notif_type='new_message'
+            )
 
     @action(detail=True, methods=['post'], url_path='mark-read')
     def mark_read(self, request, pk=None):
@@ -333,6 +401,4 @@ class ReviewViewSet(viewsets.ModelViewSet):
     filterset_fields = ['appointment']
 
     def get_permissions(self):
-        if self.action in ['list', 'retrieve']:
-            return [IsAuthenticated()]
-        return [IsAuthenticated()]  # any logged in user can review
+        return [IsAuthenticated()]

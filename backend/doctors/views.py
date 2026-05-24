@@ -24,18 +24,18 @@ class DoctorViewSet(viewsets.ModelViewSet):
     ordering = ['full_name']
 
     def get_queryset(self):
-        # Public listing: only approved active doctors
         if self.action in ['list', 'retrieve']:
             return DoctorProfile.objects.filter(
                 is_active=True,
                 verification_status='approved'
             ).distinct()
-        # Admin sees all
         return DoctorProfile.objects.all().distinct()
 
     def get_permissions(self):
-        if self.action in ['list', 'retrieve']:
+        if self.action in ['list', 'retrieve', 'stats']:
             return [AllowAny()]
+        if self.action in ['pending', 'approve', 'reject']:
+            return [IsAdminRole()]
         return [IsAdminRole()]
 
     @action(detail=True, methods=['post'])
@@ -74,6 +74,46 @@ class DoctorViewSet(viewsets.ModelViewSet):
         doctors = DoctorProfile.objects.filter(verification_status='pending')
         serializer = self.get_serializer(doctors, many=True)
         return Response(serializer.data)
+
+    @action(detail=True, methods=['get'])
+    def stats(self, request, pk=None):
+        from appointments.models import Appointment, Review
+        doctor = self.get_object()
+
+        appointments = Appointment.objects.filter(doctor=doctor)
+        total = appointments.count()
+
+        status_counts = {
+            'completed': appointments.filter(status='completed').count(),
+            'canceled': appointments.filter(status='canceled').count(),
+            'rejected': appointments.filter(status='rejected').count(),
+            'pending': appointments.filter(status='pending').count(),
+            'confirmed': appointments.filter(status='confirmed').count(),
+        }
+
+        completion_rate = round(
+            (status_counts['completed'] / total * 100), 1
+        ) if total > 0 else 0
+
+        reviews = Review.objects.filter(appointment__doctor=doctor)
+        total_reviews = reviews.count()
+        avg_rating = None
+        if total_reviews > 0:
+            avg = sum(
+                r.rating_waiting + r.rating_hygiene + r.rating_attentiveness
+                for r in reviews
+            ) / (total_reviews * 3)
+            avg_rating = round(avg, 2)
+
+        return Response({
+            'doctor': doctor.full_name,
+            'total_appointments': total,
+            **status_counts,
+            'completion_rate': completion_rate,
+            'avg_rating': avg_rating,
+            'total_reviews': total_reviews,
+            'total_clinics': doctor.clinics.count(),
+        })
 
 
 class ClinicViewSet(viewsets.ModelViewSet):

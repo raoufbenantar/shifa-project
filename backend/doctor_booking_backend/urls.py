@@ -8,6 +8,8 @@ from patients.views import PatientViewSet
 from appointments.views import AppointmentMessageViewSet, AppointmentViewSet, AppointmentStatusHistoryViewSet, ReviewViewSet
 from medical_records.views import (MedicalRecordViewSet, ConsultationViewSet, DiagnosisViewSet,
     MedicationViewSet, PrescriptionViewSet, AttachmentViewSet)
+from notifications.views import NotificationViewSet
+from chat.views import ChatRoomViewSet
 
 router = DefaultRouter()
 router.register(r'roles', RoleViewSet)
@@ -26,6 +28,8 @@ router.register(r'diagnoses', DiagnosisViewSet)
 router.register(r'medications', MedicationViewSet)
 router.register(r'prescriptions', PrescriptionViewSet)
 router.register(r'attachments', AttachmentViewSet)
+router.register(r'notifications', NotificationViewSet, basename='notification')
+router.register(r'chat', ChatRoomViewSet, basename='chat')
 
 urlpatterns = [
     path('admin/', admin.site.urls),
