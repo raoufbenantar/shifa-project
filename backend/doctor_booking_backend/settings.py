@@ -44,6 +44,7 @@ INSTALLED_APPS = [
     'appointments.apps.AppointmentsConfig',
     'medical_records',
     'notifications',
+    'drf_spectacular',
     'chat',
     'channels',
     'rest_framework_simplejwt.token_blacklist',
@@ -158,6 +159,7 @@ SIMPLE_JWT = {
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [],
     'DEFAULT_PERMISSION_CLASSES': [],
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
 }
 
 # Channels
@@ -170,3 +172,13 @@ CHANNEL_LAYERS = {
         },
     },
 }
+
+# Spectacular (Swagger)
+REST_FRAMEWORK_SPECTACULAR = {
+    'TITLE': 'Shifa API',
+    'DESCRIPTION': 'Doctor Booking & Medical Records API',
+    'VERSION': '1.0.0',
+}
+
+# Fix for drf-spectacular
+REST_FRAMEWORK['DEFAULT_SCHEMA_CLASS'] = 'drf_spectacular.openapi.AutoSchema'

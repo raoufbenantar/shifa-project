@@ -1,13 +1,7 @@
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 import 'doctor_model.dart';
-
-// ─────────────────────────────────────────────────────────────
-// DATA LAYER → Doctor Login Remote Data Source
-//
-// Same mock-first pattern used for patient login and signup.
-// When the backend is ready, create DoctorLoginRemoteDataSourceImpl
-// that does the actual http.post() and inject it — zero changes
-// needed in Domain or Presentation.
-// ─────────────────────────────────────────────────────────────
 
 abstract class DoctorLoginRemoteDataSource {
   Future<DoctorModel> loginDoctor({
@@ -16,53 +10,119 @@ abstract class DoctorLoginRemoteDataSource {
   });
 }
 
+// ── Mock (kept for offline testing) ──────────────────────────
 class DoctorLoginRemoteDataSourceMock implements DoctorLoginRemoteDataSource {
   @override
   Future<DoctorModel> loginDoctor({
     required String email,
     required String password,
   }) async {
-    // Simulate network delay
     await Future.delayed(const Duration(seconds: 1));
-
-    // ── Simulate wrong credentials error ─────────────────
-    // Uncomment to test DoctorLoginFailure state:
-    // throw Exception('Invalid email or password.');
-
-    // ── Simulate role mismatch (patient logs into doctor) ─
-    // Uncomment to test role enforcement in the Use Case:
-    // return DoctorModel.fromJson({ 'token': 'x',
-    //   'user': { 'id': 1, 'email': email, 'role_id': 1,  ← patient!
-    //   'is_active': true, 'profile': {...} } });
-
-    // ── Happy-path: valid doctor response ────────────────
-    // role_id = 2 → maps to roles.name = 'doctor'
     return DoctorModel.fromJson({
       'token': 'mock.jwt.token.doctor',
       'user': {
-        'id':        2,
-        'email':     email,
-        'role_id':   2,         // MUST equal kDoctorRoleId
+        'id': 2,
+        'email': email,
+        'role_id': 2,
         'is_active': true,
         'profile': {
-          'full_name':        'Dr. Ahmed Belkacem',
-          'specialization':   'Cardiologist',
+          'full_name': 'Dr. Ahmed Belkacem',
+          'specialization': 'Cardiologist',
           'experience_years': 12,
           'consultation_fee': 2500.0,
-          'bio':              'Senior cardiologist at Algiers Central Clinic.',
+          'bio': 'Senior cardiologist at Algiers Central Clinic.',
         },
       },
     });
+  }
+}
 
-    // ── Real implementation template ─────────────────────
-    // final response = await http.post(
-    //   Uri.parse('https://your-api.com/auth/login'),
-    //   headers: {'Content-Type': 'application/json'},
-    //   body: jsonEncode({'email': email, 'password': password}),
-    // );
-    // if (response.statusCode == 200) {
-    //   return DoctorModel.fromJson(jsonDecode(response.body));
-    // }
-    // throw Exception(jsonDecode(response.body)['message'] ?? 'Login failed');
+// ── Real Implementation ───────────────────────────────────────
+class DoctorLoginRemoteDataSourceImpl implements DoctorLoginRemoteDataSource {
+  // 10.0.2.2 = Android emulator → localhost
+  // For web/desktop use 127.0.0.1
+  static const String _baseUrl = 'http://127.0.0.1:8000';
+
+  @override
+  Future<DoctorModel> loginDoctor({
+    required String email,
+    required String password,
+  }) async {
+    // Step 1 — Login to get tokens
+    final loginResponse = await http.post(
+      Uri.parse('$_baseUrl/api/auth/login/'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'email': email, 'password': password}),
+    );
+
+    if (loginResponse.statusCode != 200) {
+      final error = jsonDecode(loginResponse.body);
+      throw Exception(error['error'] ?? 'Login failed');
+    }
+
+    final loginData = jsonDecode(loginResponse.body) as Map<String, dynamic>;
+    final accessToken = loginData['access'] as String;
+    final userData = loginData['user'] as Map<String, dynamic>;
+    final userId = userData['id'] as int;
+    final roleId = userData['role'] as int;
+
+    // Step 2 — Save token to SharedPreferences
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('access_token', accessToken);
+    await prefs.setString('refresh_token', loginData['refresh'] as String);
+    await prefs.setInt('user_id', userId);
+    await prefs.setInt('role_id', roleId);
+
+    // Step 3 — Fetch doctor profile
+    final profileResponse = await http.get(
+      Uri.parse('$_baseUrl/api/doctors/'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $accessToken',
+      },
+    );
+
+    String fullName = '';
+    String specialization = '';
+    int experienceYears = 0;
+    double consultationFee = 0.0;
+    String bio = '';
+    int doctorId = 0;
+
+    if (profileResponse.statusCode == 200) {
+      final doctors = jsonDecode(profileResponse.body) as List;
+      // Find the doctor profile matching this user
+      final doctorProfile = doctors.firstWhere(
+        (d) => d['user'] == userId,
+        orElse: () => null,
+      );
+      if (doctorProfile != null) {
+        doctorId = doctorProfile['id'];
+        fullName = doctorProfile['full_name'] ?? '';
+        specialization = doctorProfile['specialization'] ?? '';
+        experienceYears = doctorProfile['experience_years'] ?? 0;
+        consultationFee = double.tryParse(doctorProfile['consultation_fee'].toString()) ?? 0.0;
+        bio = doctorProfile['bio'] ?? '';
+        await prefs.setInt('doctor_id', doctorId);
+      }
+    }
+
+    // Step 4 — Return DoctorModel in expected format
+    return DoctorModel.fromJson({
+      'token': accessToken,
+      'user': {
+        'id': userId,
+        'email': email,
+        'role_id': roleId,
+        'is_active': userData['is_active'] ?? true,
+        'profile': {
+          'full_name': fullName,
+          'specialization': specialization,
+          'experience_years': experienceYears,
+          'consultation_fee': consultationFee,
+          'bio': bio,
+        },
+      },
+    });
   }
 }
