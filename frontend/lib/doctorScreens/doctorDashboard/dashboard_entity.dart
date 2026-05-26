@@ -4,6 +4,7 @@ class DashboardEntity {
   final List<AppointmentEntity> todayAppointments;
   final List<AppointmentEntity> pendingAppointments;
   final List<AppointmentEntity> upcomingAppointments;
+  final List<ReviewSummaryEntity> recentReviews;
   final int unreadMessages;
   final int unreadNotifications;
 
@@ -13,6 +14,7 @@ class DashboardEntity {
     required this.todayAppointments,
     required this.pendingAppointments,
     required this.upcomingAppointments,
+    required this.recentReviews,
     required this.unreadMessages,
     required this.unreadNotifications,
   });
@@ -75,5 +77,19 @@ class AppointmentEntity {
     required this.scheduledDatetime,
     required this.status,
     required this.consultationType,
+  });
+}
+
+class ReviewSummaryEntity {
+  final int id;
+  final double avgRating;
+  final String? comment;
+  final String createdAt;
+
+  const ReviewSummaryEntity({
+    required this.id,
+    required this.avgRating,
+    this.comment,
+    required this.createdAt,
   });
 }

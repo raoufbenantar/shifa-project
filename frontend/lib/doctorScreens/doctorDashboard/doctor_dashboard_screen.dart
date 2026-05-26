@@ -18,9 +18,7 @@ class DoctorDashboardScreen extends StatelessWidget {
     return BlocProvider(
       create: (_) => DashboardBloc(
         GetDashboardUseCase(
-          DashboardRepositoryImpl(
-            DashboardRemoteDataSourceImpl(),
-          ),
+          DashboardRepositoryImpl(DashboardRemoteDataSourceImpl()),
         ),
       )..add(LoadDashboard()),
       child: const _DashboardView(),
@@ -33,45 +31,47 @@ class _DashboardView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      body: BlocBuilder<DashboardBloc, DashboardState>(
-        builder: (context, state) {
-          if (state is DashboardLoading || state is DashboardInitial) {
-            return const Center(
-              child: CircularProgressIndicator(color: AppColors.primary),
-            );
-          }
-          if (state is DashboardError) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(Icons.error_outline,
-                      color: Colors.redAccent, size: 48),
-                  const SizedBox(height: 12),
-                  Text(state.message,
+    return BlocBuilder<DashboardBloc, DashboardState>(
+      builder: (context, state) {
+        if (state is DashboardLoading || state is DashboardInitial) {
+          return const Center(
+              child: CircularProgressIndicator(color: AppColors.primary));
+        }
+        if (state is DashboardError) {
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.error_outline,
+                    color: Colors.redAccent, size: 48),
+                const SizedBox(height: 12),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 32),
+                  child: Text(state.message,
                       style: AppTextStyles.fieldLabel,
                       textAlign: TextAlign.center),
-                  const SizedBox(height: 16),
-                  ElevatedButton(
-                    onPressed: () =>
-                        context.read<DashboardBloc>().add(RefreshDashboard()),
-                    style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primary),
-                    child: const Text('Retry',
-                        style: TextStyle(color: AppColors.white)),
-                  ),
-                ],
-              ),
-            );
-          }
-          if (state is DashboardLoaded) {
-            return _DashboardContent(dashboard: state.dashboard);
-          }
-          return const SizedBox();
-        },
-      ),
+                ),
+                const SizedBox(height: 16),
+                ElevatedButton.icon(
+                  onPressed: () =>
+                      context.read<DashboardBloc>().add(RefreshDashboard()),
+                  style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12))),
+                  icon: const Icon(Icons.refresh),
+                  label: const Text('Retry'),
+                ),
+              ],
+            ),
+          );
+        }
+        if (state is DashboardLoaded) {
+          return _DashboardContent(dashboard: state.dashboard);
+        }
+        return const SizedBox();
+      },
     );
   }
 }
@@ -84,182 +84,208 @@ class _DashboardContent extends StatelessWidget {
   Widget build(BuildContext context) {
     return RefreshIndicator(
       color: AppColors.primary,
-      onRefresh: () async {
-        context.read<DashboardBloc>().add(RefreshDashboard());
-      },
+      onRefresh: () async =>
+          context.read<DashboardBloc>().add(RefreshDashboard()),
       child: CustomScrollView(
         slivers: [
-          // ── Header ──────────────────────────────
-          SliverToBoxAdapter(child: _buildHeader(dashboard.doctor, dashboard)),
-
-          // ── Stats Grid ──────────────────────────
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('Overview',
-                      style: TextStyle(
-                          fontFamily: 'Inter',
-                          fontWeight: FontWeight.w700,
-                          fontSize: 18)),
-                  const SizedBox(height: 12),
-                  _buildStatsGrid(dashboard.stats),
-                ],
-              ),
-            ),
-          ),
-
-          // ── Today's Appointments ─────────────────
-          SliverToBoxAdapter(
-            child: _buildSection(
-              title: "Today's Appointments",
-              icon: Icons.calendar_today,
-              appointments: dashboard.todayAppointments,
-              emptyMessage: 'No appointments today',
-            ),
-          ),
-
-          // ── Pending Appointments ─────────────────
-          SliverToBoxAdapter(
-            child: _buildSection(
-              title: 'Pending Requests',
-              icon: Icons.pending_actions,
-              appointments: dashboard.pendingAppointments,
-              emptyMessage: 'No pending requests',
-              statusColor: Colors.orange,
-            ),
-          ),
-
-          // ── Upcoming Appointments ────────────────
-          SliverToBoxAdapter(
-            child: _buildSection(
-              title: 'Upcoming (7 days)',
-              icon: Icons.schedule,
-              appointments: dashboard.upcomingAppointments,
-              emptyMessage: 'No upcoming appointments',
-            ),
-          ),
-
+          SliverToBoxAdapter(child: _buildHeader(context)),
+          SliverToBoxAdapter(child: _buildOverviewSection()),
+          SliverToBoxAdapter(child: _buildAppointmentSection(
+            context,
+            title: "Today's Appointments",
+            icon: Icons.today_outlined,
+            appointments: dashboard.todayAppointments,
+            emptyMessage: 'No appointments today',
+            accentColor: AppColors.primary,
+          )),
+          SliverToBoxAdapter(child: _buildAppointmentSection(
+            context,
+            title: 'Pending Requests',
+            icon: Icons.pending_actions_outlined,
+            appointments: dashboard.pendingAppointments,
+            emptyMessage: 'No pending requests',
+            accentColor: const Color(0xFFF59E0B),
+          )),
+          SliverToBoxAdapter(child: _buildAppointmentSection(
+            context,
+            title: 'Upcoming (7 days)',
+            icon: Icons.schedule_outlined,
+            appointments: dashboard.upcomingAppointments,
+            emptyMessage: 'No upcoming appointments',
+            accentColor: const Color(0xFF6366F1),
+          )),
+          if (dashboard.recentReviews.isNotEmpty)
+            SliverToBoxAdapter(child: _buildReviewsSection()),
           const SliverToBoxAdapter(child: SizedBox(height: 32)),
         ],
       ),
     );
   }
 
-  Widget _buildHeader(DoctorInfo doctor, DashboardEntity dashboard) {
+  // ── Gradient header ──────────────────────────────────────────
+  Widget _buildHeader(BuildContext context) {
+    final d = dashboard.doctor;
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(20, 56, 20, 24),
       decoration: const BoxDecoration(
-        color: AppColors.primary,
+        gradient: LinearGradient(
+          colors: [Color(0xFF3ECCAF), Color(0xFF29A88E)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
         borderRadius: BorderRadius.only(
-          bottomLeft: Radius.circular(28),
-          bottomRight: Radius.circular(28),
+          bottomLeft: Radius.circular(32),
+          bottomRight: Radius.circular(32),
         ),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+      child: SafeArea(
+        bottom: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Avatar
-              CircleAvatar(
-                radius: 28,
-                backgroundColor: AppColors.white.withOpacity(0.3),
-                child: doctor.image != null
-                    ? ClipOval(
-                        child: Image.network(doctor.image!,
-                            width: 56, height: 56, fit: BoxFit.cover))
-                    : const Icon(Icons.person, color: AppColors.white, size: 32),
+              // Top row: avatar + name + notification bell
+              Row(
+                children: [
+                  _buildAvatar(d),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Dr. ${d.fullName}',
+                            style: AppTextStyles.loginTitle
+                                .copyWith(fontSize: 20)),
+                        const SizedBox(height: 3),
+                        Text(d.specialization,
+                            style: AppTextStyles.loginSubtitle
+                                .copyWith(fontSize: 13)),
+                      ],
+                    ),
+                  ),
+                  _buildNotificationBell(context),
+                ],
               ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+
+              // Verification warning
+              if (d.verificationStatus != 'approved') ...[
+                const SizedBox(height: 12),
+                _buildVerificationBadge(d.verificationStatus),
+              ],
+
+              const SizedBox(height: 20),
+
+              // Quick stats row
+              Container(
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
-                    Text('Dr. ${doctor.fullName}',
-                        style: AppTextStyles.loginTitle),
-                    const SizedBox(height: 4),
-                    Text(doctor.specialization,
-                        style: AppTextStyles.loginSubtitle),
+                    _buildQuickStat('${dashboard.unreadMessages}',
+                        'Messages', Icons.chat_bubble_outline),
+                    _buildDivider(),
+                    _buildQuickStat('${dashboard.stats.totalClinics}',
+                        'Clinics', Icons.local_hospital_outlined),
+                    _buildDivider(),
+                    _buildQuickStat(
+                        dashboard.stats.avgRating != null
+                            ? dashboard.stats.avgRating!.toStringAsFixed(1)
+                            : 'N/A',
+                        'Rating',
+                        Icons.star_outline_rounded),
+                    _buildDivider(),
+                    _buildQuickStat('${dashboard.stats.totalReviews}',
+                        'Reviews', Icons.rate_review_outlined),
                   ],
                 ),
               ),
-              // Notification badge
-              Stack(
-                children: [
-                  const Icon(Icons.notifications_outlined,
-                      color: AppColors.white, size: 28),
-                  if (dashboard.unreadNotifications > 0)
-                    Positioned(
-                      right: 0,
-                      top: 0,
-                      child: Container(
-                        width: 14,
-                        height: 14,
-                        decoration: const BoxDecoration(
-                          color: Colors.redAccent,
-                          shape: BoxShape.circle,
-                        ),
-                        child: Center(
-                          child: Text(
-                            '${dashboard.unreadNotifications}',
-                            style: const TextStyle(
-                                color: Colors.white, fontSize: 9),
-                          ),
-                        ),
-                      ),
-                    ),
-                ],
-              ),
             ],
           ),
-          const SizedBox(height: 20),
-          // Verification badge
-          if (doctor.verificationStatus != 'approved')
-            Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: Colors.orange.withOpacity(0.2),
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: Colors.orange),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.warning_amber_rounded,
-                      color: Colors.orange, size: 16),
-                  const SizedBox(width: 6),
-                  Text(
-                    'Account ${doctor.verificationStatus}',
-                    style: const TextStyle(
-                        color: Colors.orange,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500),
-                  ),
-                ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAvatar(DoctorInfo d) {
+    return Container(
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: Border.all(color: Colors.white, width: 2.5),
+      ),
+      child: CircleAvatar(
+        radius: 28,
+        backgroundColor: Colors.white.withOpacity(0.3),
+        child: d.image != null
+            ? ClipOval(
+                child: Image.network(d.image!,
+                    width: 56, height: 56, fit: BoxFit.cover))
+            : const Icon(Icons.person, color: Colors.white, size: 32),
+      ),
+    );
+  }
+
+  Widget _buildNotificationBell(BuildContext context) {
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.2),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: const Icon(Icons.notifications_outlined,
+              color: Colors.white, size: 24),
+        ),
+        if (dashboard.unreadNotifications > 0)
+          Positioned(
+            right: -4,
+            top: -4,
+            child: Container(
+              width: 18,
+              height: 18,
+              decoration: const BoxDecoration(
+                  color: Color(0xFFEF4444), shape: BoxShape.circle),
+              child: Center(
+                child: Text(
+                  dashboard.unreadNotifications > 9
+                      ? '9+'
+                      : '${dashboard.unreadNotifications}',
+                  style:
+                      const TextStyle(color: Colors.white, fontSize: 10,
+                          fontWeight: FontWeight.bold),
+                ),
               ),
             ),
-          // Quick stats row
-          const SizedBox(height: 16),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              _buildQuickStat(
-                  '${dashboard.unreadMessages}', 'Messages', Icons.message),
-              _buildQuickStat('${dashboard.stats.totalClinics}', 'Clinics',
-                  Icons.local_hospital),
-              _buildQuickStat(
-                  dashboard.stats.avgRating != null
-                      ? '${dashboard.stats.avgRating}'
-                      : 'N/A',
-                  'Rating',
-                  Icons.star),
-            ],
           ),
+      ],
+    );
+  }
+
+  Widget _buildVerificationBadge(String status) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.orange.withOpacity(0.2),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.orange.withOpacity(0.6)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.warning_amber_rounded,
+              color: Colors.orange, size: 15),
+          const SizedBox(width: 6),
+          Text('Account ${status[0].toUpperCase()}${status.substring(1)}',
+              style: const TextStyle(
+                  color: Colors.orange,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600)),
         ],
       ),
     );
@@ -268,37 +294,60 @@ class _DashboardContent extends StatelessWidget {
   Widget _buildQuickStat(String value, String label, IconData icon) {
     return Column(
       children: [
-        Icon(icon, color: AppColors.white, size: 20),
+        Icon(icon, color: Colors.white, size: 18),
         const SizedBox(height: 4),
         Text(value,
             style: const TextStyle(
-                color: AppColors.white,
+                color: Colors.white,
                 fontWeight: FontWeight.w700,
-                fontSize: 16)),
+                fontSize: 15,
+                fontFamily: 'Inter')),
         Text(label,
-            style: const TextStyle(color: AppColors.white, fontSize: 11)),
+            style: const TextStyle(
+                color: Colors.white70, fontSize: 10, fontFamily: 'Inter')),
       ],
     );
   }
 
-  Widget _buildStatsGrid(DashboardStats stats) {
-    return GridView.count(
-      crossAxisCount: 2,
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      crossAxisSpacing: 12,
-      mainAxisSpacing: 12,
-      childAspectRatio: 1.6,
-      children: [
-        _buildStatCard('Total', '${stats.totalAppointments}',
-            Icons.calendar_month, AppColors.primary),
-        _buildStatCard('Completed', '${stats.completed}',
-            Icons.check_circle_outline, Colors.green),
-        _buildStatCard(
-            'Pending', '${stats.pending}', Icons.pending, Colors.orange),
-        _buildStatCard('Completion', '${stats.completionRate}%',
-            Icons.trending_up, Colors.blue),
-      ],
+  Widget _buildDivider() {
+    return Container(width: 1, height: 36, color: Colors.white30);
+  }
+
+  // ── Stats overview ───────────────────────────────────────────
+  Widget _buildOverviewSection() {
+    final s = dashboard.stats;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 24, 20, 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('Overview',
+              style: TextStyle(
+                  fontFamily: 'Inter',
+                  fontWeight: FontWeight.w700,
+                  fontSize: 18,
+                  color: Color(0xFF111827))),
+          const SizedBox(height: 14),
+          GridView.count(
+            crossAxisCount: 2,
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            crossAxisSpacing: 12,
+            mainAxisSpacing: 12,
+            childAspectRatio: 1.65,
+            children: [
+              _buildStatCard('Total', '${s.totalAppointments}',
+                  Icons.calendar_month_outlined, AppColors.primary),
+              _buildStatCard('Completed', '${s.completed}',
+                  Icons.check_circle_outline, const Color(0xFF10B981)),
+              _buildStatCard('Pending', '${s.pending}',
+                  Icons.hourglass_top_outlined, const Color(0xFFF59E0B)),
+              _buildStatCard('Rate', '${s.completionRate}%',
+                  Icons.trending_up_rounded, const Color(0xFF6366F1)),
+            ],
+          ),
+        ],
+      ),
     );
   }
 
@@ -307,17 +356,17 @@ class _DashboardContent extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.08),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: color.withOpacity(0.2)),
+        color: color.withOpacity(0.06),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: color.withOpacity(0.18)),
       ),
       child: Row(
         children: [
           Container(
-            padding: const EdgeInsets.all(8),
+            padding: const EdgeInsets.all(9),
             decoration: BoxDecoration(
-              color: color.withOpacity(0.15),
-              borderRadius: BorderRadius.circular(10),
+              color: color.withOpacity(0.14),
+              borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(icon, color: color, size: 20),
           ),
@@ -329,14 +378,14 @@ class _DashboardContent extends StatelessWidget {
               Text(value,
                   style: TextStyle(
                       fontFamily: 'Inter',
-                      fontWeight: FontWeight.w700,
-                      fontSize: 20,
+                      fontWeight: FontWeight.w800,
+                      fontSize: 22,
                       color: color)),
               Text(label,
                   style: const TextStyle(
                       fontFamily: 'Inter',
                       fontSize: 12,
-                      color: AppColors.textSecondary)),
+                      color: Color(0xFF6B7280))),
             ],
           ),
         ],
@@ -344,109 +393,158 @@ class _DashboardContent extends StatelessWidget {
     );
   }
 
-  Widget _buildSection({
+  // ── Appointment section ──────────────────────────────────────
+  Widget _buildAppointmentSection(
+    BuildContext context, {
     required String title,
     required IconData icon,
     required List<AppointmentEntity> appointments,
     required String emptyMessage,
-    Color? statusColor,
+    required Color accentColor,
   }) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(icon, color: AppColors.primary, size: 20),
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: accentColor.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(icon, color: accentColor, size: 16),
+              ),
               const SizedBox(width: 8),
               Text(title,
                   style: const TextStyle(
                       fontFamily: 'Inter',
                       fontWeight: FontWeight.w700,
-                      fontSize: 16)),
+                      fontSize: 16,
+                      color: Color(0xFF111827))),
               const Spacer(),
-              Text('${appointments.length}',
-                  style: TextStyle(
-                      color: AppColors.primary,
-                      fontWeight: FontWeight.w600,
-                      fontSize: 14)),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                decoration: BoxDecoration(
+                  color: accentColor.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text('${appointments.length}',
+                    style: TextStyle(
+                        color: accentColor,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 13,
+                        fontFamily: 'Inter')),
+              ),
             ],
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
           if (appointments.isEmpty)
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.symmetric(vertical: 18),
               decoration: BoxDecoration(
-                color: AppColors.primaryLight,
-                borderRadius: BorderRadius.circular(12),
+                color: const Color(0xFFF9FAFB),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: const Color(0xFFE5E7EB)),
               ),
-              child: Text(emptyMessage,
-                  style: AppTextStyles.fieldHint,
-                  textAlign: TextAlign.center),
+              child: Column(
+                children: [
+                  Icon(icon, color: const Color(0xFFD1D5DB), size: 32),
+                  const SizedBox(height: 6),
+                  Text(emptyMessage,
+                      style: const TextStyle(
+                          color: Color(0xFF9CA3AF),
+                          fontFamily: 'Inter',
+                          fontSize: 14)),
+                ],
+              ),
             )
           else
-            ...appointments.map((a) => _buildAppointmentCard(a, statusColor)),
+            ...appointments.map((a) => _buildAppointmentCard(a, accentColor)),
         ],
       ),
     );
   }
 
-  Widget _buildAppointmentCard(
-      AppointmentEntity appointment, Color? statusColor) {
-    final color = statusColor ?? _statusColor(appointment.status);
-    final time = _formatTime(appointment.scheduledDatetime);
-
+  Widget _buildAppointmentCard(AppointmentEntity a, Color accentColor) {
+    final time = _formatTime(a.scheduledDatetime);
+    final statusColor = _statusColor(a.status);
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: AppColors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.divider),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE5E7EB)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          )
+              color: Colors.black.withOpacity(0.04),
+              blurRadius: 10,
+              offset: const Offset(0, 2))
         ],
       ),
       child: Row(
         children: [
           Container(
-            width: 44,
-            height: 44,
+            width: 46,
+            height: 46,
             decoration: BoxDecoration(
-              color: AppColors.primary.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12),
+              gradient: LinearGradient(
+                colors: [
+                  AppColors.primary.withOpacity(0.3),
+                  AppColors.primary.withOpacity(0.1)
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(14),
             ),
-            child: const Icon(Icons.person, color: AppColors.primary, size: 24),
+            child:
+                const Icon(Icons.person, color: AppColors.primary, size: 24),
           ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(appointment.patientName,
-                    style: AppTextStyles.cardTitle),
-                const SizedBox(height: 4),
+                Text(a.patientName,
+                    style: const TextStyle(
+                        fontFamily: 'Inter',
+                        fontWeight: FontWeight.w600,
+                        fontSize: 14,
+                        color: Color(0xFF111827))),
+                const SizedBox(height: 5),
                 Row(
                   children: [
-                    const Icon(Icons.access_time,
-                        size: 13, color: AppColors.textSecondary),
-                    const SizedBox(width: 4),
-                    Text(time, style: AppTextStyles.cardSubtitle),
+                    const Icon(Icons.access_time_outlined,
+                        size: 12, color: Color(0xFF9CA3AF)),
+                    const SizedBox(width: 3),
+                    Text(time,
+                        style: const TextStyle(
+                            color: Color(0xFF6B7280),
+                            fontSize: 12,
+                            fontFamily: 'Inter')),
                     const SizedBox(width: 10),
-                    const Icon(Icons.videocam_outlined,
-                        size: 13, color: AppColors.textSecondary),
-                    const SizedBox(width: 4),
+                    Icon(
+                      a.consultationType == 'teleconsultation'
+                          ? Icons.videocam_outlined
+                          : Icons.local_hospital_outlined,
+                      size: 12,
+                      color: const Color(0xFF9CA3AF),
+                    ),
+                    const SizedBox(width: 3),
                     Text(
-                      appointment.consultationType == 'teleconsultation'
+                      a.consultationType == 'teleconsultation'
                           ? 'Video'
                           : 'In-person',
-                      style: AppTextStyles.cardSubtitle,
+                      style: const TextStyle(
+                          color: Color(0xFF6B7280),
+                          fontSize: 12,
+                          fontFamily: 'Inter'),
                     ),
                   ],
                 ),
@@ -455,17 +553,18 @@ class _DashboardContent extends StatelessWidget {
           ),
           Container(
             padding:
-                const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
             decoration: BoxDecoration(
-              color: color.withOpacity(0.1),
+              color: statusColor.withOpacity(0.1),
               borderRadius: BorderRadius.circular(20),
             ),
             child: Text(
-              appointment.status,
+              a.status[0].toUpperCase() + a.status.substring(1),
               style: TextStyle(
-                  color: color,
+                  color: statusColor,
                   fontSize: 11,
-                  fontWeight: FontWeight.w600),
+                  fontWeight: FontWeight.w700,
+                  fontFamily: 'Inter'),
             ),
           ),
         ],
@@ -473,29 +572,145 @@ class _DashboardContent extends StatelessWidget {
     );
   }
 
+  // ── Recent reviews ───────────────────────────────────────────
+  Widget _buildReviewsSection() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFBBF24).withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(Icons.star_rounded,
+                    color: Color(0xFFFBBF24), size: 16),
+              ),
+              const SizedBox(width: 8),
+              const Text('Recent Reviews',
+                  style: TextStyle(
+                      fontFamily: 'Inter',
+                      fontWeight: FontWeight.w700,
+                      fontSize: 16,
+                      color: Color(0xFF111827))),
+              const Spacer(),
+              if (dashboard.stats.avgRating != null)
+                Row(
+                  children: [
+                    const Icon(Icons.star_rounded,
+                        color: Color(0xFFFBBF24), size: 14),
+                    const SizedBox(width: 3),
+                    Text(
+                      dashboard.stats.avgRating!.toStringAsFixed(1),
+                      style: const TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 13,
+                          color: Color(0xFFFBBF24),
+                          fontFamily: 'Inter'),
+                    ),
+                  ],
+                ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          ...dashboard.recentReviews.map(_buildReviewCard),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildReviewCard(ReviewSummaryEntity r) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE5E7EB)),
+        boxShadow: [
+          BoxShadow(
+              color: Colors.black.withOpacity(0.04),
+              blurRadius: 10,
+              offset: const Offset(0, 2))
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              _buildStars(r.avgRating),
+              const Spacer(),
+              Text(
+                _formatDate(r.createdAt),
+                style: const TextStyle(
+                    color: Color(0xFF9CA3AF),
+                    fontSize: 11,
+                    fontFamily: 'Inter'),
+              ),
+            ],
+          ),
+          if (r.comment != null && r.comment!.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text(r.comment!,
+                style: const TextStyle(
+                    color: Color(0xFF374151),
+                    fontSize: 13,
+                    fontFamily: 'Inter')),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStars(double rating) {
+    return Row(
+      children: List.generate(5, (i) {
+        if (i < rating.floor()) {
+          return const Icon(Icons.star_rounded,
+              color: Color(0xFFFBBF24), size: 16);
+        } else if (i < rating) {
+          return const Icon(Icons.star_half_rounded,
+              color: Color(0xFFFBBF24), size: 16);
+        } else {
+          return const Icon(Icons.star_outline_rounded,
+              color: Color(0xFFD1D5DB), size: 16);
+        }
+      }),
+    );
+  }
+
+  // ── Helpers ──────────────────────────────────────────────────
   Color _statusColor(String status) {
     switch (status) {
-      case 'confirmed':
-        return Colors.green;
-      case 'pending':
-        return Colors.orange;
-      case 'canceled':
-        return Colors.red;
-      case 'completed':
-        return AppColors.primary;
-      default:
-        return AppColors.textSecondary;
+      case 'confirmed':  return const Color(0xFF10B981);
+      case 'pending':    return const Color(0xFFF59E0B);
+      case 'canceled':   return const Color(0xFFEF4444);
+      case 'completed':  return AppColors.primary;
+      case 'rejected':   return const Color(0xFFEF4444);
+      default:           return const Color(0xFF6B7280);
     }
   }
 
-  String _formatTime(String datetime) {
+  String _formatTime(String dt) {
     try {
-      final dt = DateTime.parse(datetime).toLocal();
-      final h = dt.hour.toString().padLeft(2, '0');
-      final m = dt.minute.toString().padLeft(2, '0');
-      return '$h:$m';
+      final d = DateTime.parse(dt).toLocal();
+      return '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
     } catch (_) {
-      return datetime;
+      return dt;
+    }
+  }
+
+  String _formatDate(String dt) {
+    try {
+      final d = DateTime.parse(dt).toLocal();
+      return '${d.day}/${d.month}/${d.year}';
+    } catch (_) {
+      return dt;
     }
   }
 }
