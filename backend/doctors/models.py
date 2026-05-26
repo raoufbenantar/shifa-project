@@ -10,9 +10,10 @@ class DoctorProfile(models.Model):
 
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='doctor_profile')
     full_name = models.CharField(max_length=100)
+    phone_number = models.CharField(max_length=16, blank=True)
     specialization = models.CharField(max_length=100)
     experience_years = models.IntegerField(default=0)
-    consultation_fee = models.DecimalField(max_digits=8, decimal_places=2)
+    consultation_fee = models.DecimalField(max_digits=8, decimal_places=2, default=0)
     bio = models.TextField(blank=True, null=True)
     image = models.ImageField(upload_to='doctors/images/', blank=True, null=True)
     license_number = models.CharField(max_length=50, unique=True)

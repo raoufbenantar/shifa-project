@@ -79,6 +79,7 @@ class DoctorLoginScreen extends StatelessWidget {
         DoctorLoginUseCase(
           DoctorLoginRepositoryImpl(
             DoctorLoginRemoteDataSourceImpl(), // swap → real datasource
+            DoctorLoginRemoteDataSourceImpl(),
           ),
         ),
       ),
