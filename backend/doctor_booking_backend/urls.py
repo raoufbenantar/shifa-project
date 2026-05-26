@@ -2,6 +2,7 @@ from django.contrib import admin
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from rest_framework_simplejwt.views import TokenRefreshView
+from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView, SpectacularRedocView
 from users.views import (
     DoctorRegisterView,
     LoginView,
@@ -18,6 +19,7 @@ from medical_records.views import (MedicalRecordViewSet, ConsultationViewSet, Di
     MedicationViewSet, PrescriptionViewSet, AttachmentViewSet)
 from notifications.views import NotificationViewSet
 from chat.views import ChatRoomViewSet
+from dashboard.views import DoctorDashboardView
 
 router = DefaultRouter()
 router.register(r'roles', RoleViewSet)
@@ -49,4 +51,8 @@ urlpatterns = [
     path('api/auth/me/', MeView.as_view()),
     path('api/auth/refresh/', TokenRefreshView.as_view()),
     path('api/', include(router.urls)),
+    path('api/dashboard/doctor/', DoctorDashboardView.as_view()),
+    path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
+    path('api/docs/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
+    path('api/redoc/', SpectacularRedocView.as_view(url_name='schema'), name='redoc'),
 ]

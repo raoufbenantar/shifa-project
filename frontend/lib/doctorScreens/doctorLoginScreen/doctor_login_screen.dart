@@ -13,6 +13,7 @@ import 'doctor_login_event.dart';
 import 'doctor_login_remote_datasource.dart';
 import 'doctor_login_repository_impl.dart';
 import 'doctor_login_state.dart';
+import '../doctorDashboard/doctor_dashboard_screen.dart';
 import 'doctor_login_usecase.dart';
 
 
@@ -77,6 +78,7 @@ class DoctorLoginScreen extends StatelessWidget {
       create: (_) => DoctorLoginBloc(
         DoctorLoginUseCase(
           DoctorLoginRepositoryImpl(
+            DoctorLoginRemoteDataSourceImpl(), // swap → real datasource
             DoctorLoginRemoteDataSourceImpl(),
           ),
         ),
@@ -158,9 +160,9 @@ class _DoctorLoginViewState extends State<_DoctorLoginView> {
           duration: const Duration(seconds: 2),
         ),
       );
-      // TODO: Navigator.pushReplacement(context,
-      //   MaterialPageRoute(builder: (_) =>
-      //     DoctorHomeScreen(doctor: state.doctor)));
+      Navigator.pushReplacement(context,
+      MaterialPageRoute(builder: (_) =>
+      const DoctorDashboardScreen()));
       // pushReplacement removes the login screen from the stack
       // so the doctor can't press Back to return to login.
     }
