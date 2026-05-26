@@ -30,7 +30,7 @@ class DoctorLoginRemoteDataSourceMock implements DoctorLoginRemoteDataSource {
           'specialization': 'Cardiologist',
           'experience_years': 12,
           'consultation_fee': 2500.0,
-          'bio': 'Senior cardiologist at Algiers Central Clinic.',
+          'bio': 'Senior cardiologist.',
         },
       },
     });
@@ -39,8 +39,6 @@ class DoctorLoginRemoteDataSourceMock implements DoctorLoginRemoteDataSource {
 
 // ── Real Implementation ───────────────────────────────────────
 class DoctorLoginRemoteDataSourceImpl implements DoctorLoginRemoteDataSource {
-  // 10.0.2.2 = Android emulator → localhost
-  // For web/desktop use 127.0.0.1
   static const String _baseUrl = 'http://127.0.0.1:8000';
 
   @override
@@ -48,7 +46,6 @@ class DoctorLoginRemoteDataSourceImpl implements DoctorLoginRemoteDataSource {
     required String email,
     required String password,
   }) async {
-    // Step 1 — Login to get tokens
     final loginResponse = await http.post(
       Uri.parse('$_baseUrl/api/auth/login/'),
       headers: {'Content-Type': 'application/json'},
@@ -60,102 +57,36 @@ class DoctorLoginRemoteDataSourceImpl implements DoctorLoginRemoteDataSource {
       throw Exception(error['error'] ?? 'Login failed');
     }
 
-    final loginData = jsonDecode(loginResponse.body) as Map<String, dynamic>;
-    final accessToken = loginData['access'] as String;
-    final userData = loginData['user'] as Map<String, dynamic>;
-    final userId = userData['id'] as int;
-    final roleId = userData['role'] as int;
+    final data = jsonDecode(loginResponse.body) as Map<String, dynamic>;
+    final userData = data['user'] as Map<String, dynamic>;
+    final profile = userData['profile'] as Map<String, dynamic>? ?? {};
 
-    // Step 2 — Save token to SharedPreferences
+    // Save to SharedPreferences
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('access_token', accessToken);
-    await prefs.setString('refresh_token', loginData['refresh'] as String);
-    await prefs.setInt('user_id', userId);
-    await prefs.setInt('role_id', roleId);
-
-    // Step 3 — Fetch doctor profile
-    final profileResponse = await http.get(
-      Uri.parse('$_baseUrl/api/doctors/'),
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer $accessToken',
-      },
-    );
-
-    String fullName = '';
-    String specialization = '';
-    int experienceYears = 0;
-    double consultationFee = 0.0;
-    String bio = '';
-    int doctorId = 0;
-
-    if (profileResponse.statusCode == 200) {
-      final doctors = jsonDecode(profileResponse.body) as List;
-      // Find the doctor profile matching this user
-      final doctorProfile = doctors.firstWhere(
-        (d) => d['user'] == userId,
-        orElse: () => null,
-      );
-      if (doctorProfile != null) {
-        doctorId = doctorProfile['id'];
-        fullName = doctorProfile['full_name'] ?? '';
-        specialization = doctorProfile['specialization'] ?? '';
-        experienceYears = doctorProfile['experience_years'] ?? 0;
-        consultationFee = double.tryParse(doctorProfile['consultation_fee'].toString()) ?? 0.0;
-        bio = doctorProfile['bio'] ?? '';
-        await prefs.setInt('doctor_id', doctorId);
-      }
+    await prefs.setString('access_token', data['access'] as String);
+    await prefs.setString('refresh_token', data['refresh'] as String);
+    await prefs.setInt('user_id', userData['id'] as int);
+    await prefs.setInt('role_id', userData['role_id'] as int);
+    if (profile['id'] != null) {
+      await prefs.setInt('doctor_id', profile['id'] as int);
     }
 
-    // Step 4 — Return DoctorModel in expected format
+    // Return DoctorModel directly from login response
     return DoctorModel.fromJson({
-      'token': accessToken,
+      'token': data['token'],
       'user': {
-        'id': userId,
-        'email': email,
-        'role_id': roleId,
-        'is_active': userData['is_active'] ?? true,
+        'id': userData['id'],
+        'email': userData['email'],
+        'role_id': userData['role_id'],
+        'is_active': userData['is_active'],
         'profile': {
-          'full_name': fullName,
-          'specialization': specialization,
-          'experience_years': experienceYears,
-          'consultation_fee': consultationFee,
-          'bio': bio,
+          'full_name': profile['full_name'] ?? '',
+          'specialization': profile['specialization'] ?? '',
+          'experience_years': profile['experience_years'] ?? 0,
+          'consultation_fee': profile['consultation_fee'] ?? 0.0,
+          'bio': profile['bio'] ?? '',
         },
       },
     });
-  }
-}
-
-class DoctorLoginRemoteDataSourceImpl implements DoctorLoginRemoteDataSource {
-  final http.Client _client;
-
-  DoctorLoginRemoteDataSourceImpl({http.Client? client}) : _client = client ?? http.Client();
-
-  @override
-  Future<DoctorModel> loginDoctor({
-    required String email,
-    required String password,
-  }) async {
-    final response = await _client.post(
-      Uri.parse('${ApiConfig.baseUrl}/auth/login/'),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({
-        'email': email,
-        'password': password,
-      }),
-    );
-
-    final data = jsonDecode(response.body) as Map<String, dynamic>;
-    if (response.statusCode != 200) {
-      throw Exception(data['error'] ?? 'Login failed');
-    }
-
-    final doctor = DoctorModel.fromJson(data);
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('access', data['access'] as String? ?? doctor.token);
-    await prefs.setString('refresh', data['refresh'] as String? ?? '');
-    await prefs.setString('role', data['user']['role'] as String? ?? 'doctor');
-    return doctor;
   }
 }

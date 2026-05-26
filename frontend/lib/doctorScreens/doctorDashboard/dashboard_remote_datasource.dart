@@ -1,6 +1,6 @@
 import 'dart:convert';
-import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
+import '../../core/network/api_client.dart';
+import '../../core/constants/api_constants.dart';
 import 'dashboard_model.dart';
 
 abstract class DashboardRemoteDataSource {
@@ -8,28 +8,19 @@ abstract class DashboardRemoteDataSource {
 }
 
 class DashboardRemoteDataSourceImpl implements DashboardRemoteDataSource {
-  static const String _baseUrl = 'http://10.0.2.2:8000';
+  final _client = ApiClient.instance;
 
   @override
   Future<DashboardModel> getDashboard() async {
-    final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('access_token') ?? '';
-    final doctorId = prefs.getInt('doctor_id');
+    final doctorId = await _client.getDoctorId();
+    final params = <String, String>{};
+    if (doctorId != null) params['doctor_id'] = '$doctorId';
 
-    final uri = doctorId != null
-        ? Uri.parse('$_baseUrl/api/dashboard/doctor/?doctor_id=$doctorId')
-        : Uri.parse('$_baseUrl/api/dashboard/doctor/');
-
-    print('Fetching dashboard from: $uri');
-    final response = await http.get(
-      uri,
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer $token',
-      },
+    final response = await _client.get(
+      ApiConstants.doctorDashboard,
+      queryParams: params.isNotEmpty ? params : null,
     );
 
-    print('Dashboard response: \${response.statusCode}');
     if (response.statusCode == 200) {
       return DashboardModel.fromJson(
         json.decode(response.body) as Map<String, dynamic>,
