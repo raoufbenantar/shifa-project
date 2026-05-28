@@ -206,8 +206,8 @@ class _PatientLoginScreenState extends State<PatientLoginScreen> {
                     obscureText: _obscurePassword,
                     // Eye-icon suffix to toggle visibility
                     suffixIcon: GestureDetector(
-                      onTap: () => setState(
-                          () => _obscurePassword = !_obscurePassword),
+                      onTap: () =>
+                          setState(() => _obscurePassword = !_obscurePassword),
                       child: Icon(
                         _obscurePassword
                             ? Icons.visibility_off_outlined
@@ -266,16 +266,16 @@ class _PatientLoginScreenState extends State<PatientLoginScreen> {
                   Row(
                     children: [
                       const Expanded(
-                          child: Divider(
-                              color: AppColors.divider, thickness: 1)),
+                          child:
+                              Divider(color: AppColors.divider, thickness: 1)),
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 12),
                         child: Text('or continue with',
                             style: AppTextStyles.orContinue),
                       ),
                       const Expanded(
-                          child: Divider(
-                              color: AppColors.divider, thickness: 1)),
+                          child:
+                              Divider(color: AppColors.divider, thickness: 1)),
                     ],
                   ),
 
@@ -337,8 +337,7 @@ class _PatientLoginScreenState extends State<PatientLoginScreen> {
                                 Navigator.push(
                                   context,
                                   MaterialPageRoute(
-                                    builder: (_) =>
-                                        const PatientSignupScreen(),
+                                    builder: (_) => const PatientSignupScreen(),
                                   ),
                                 );
                               },
@@ -472,12 +471,12 @@ class _SocialButton extends StatelessWidget {
       onTap: onTap,
       child: Container(
         width: 129, // Figma exact width
-        height: 39,  // Figma exact height
+        height: 39, // Figma exact height
         decoration: BoxDecoration(
-          color: AppColors.socialButtonBg,       // #F9FAFB
+          color: AppColors.socialButtonBg, // #F9FAFB
           borderRadius: BorderRadius.circular(15), // Figma radius 15
           border: Border.all(
-            color: AppColors.socialButtonBorder,  // #000000 @ 16%
+            color: AppColors.socialButtonBorder, // #000000 @ 16%
             width: 1,
           ),
         ),
