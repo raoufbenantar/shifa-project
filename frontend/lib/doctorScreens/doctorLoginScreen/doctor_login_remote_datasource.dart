@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:shifa/core/constants/api_constants.dart';
 import 'doctor_model.dart';
 
 abstract class DoctorLoginRemoteDataSource {
@@ -39,7 +40,6 @@ class DoctorLoginRemoteDataSourceMock implements DoctorLoginRemoteDataSource {
 
 // ── Real Implementation ───────────────────────────────────────
 class DoctorLoginRemoteDataSourceImpl implements DoctorLoginRemoteDataSource {
-  static const String _baseUrl = 'http://127.0.0.1:8000';
 
   @override
   Future<DoctorModel> loginDoctor({
@@ -47,7 +47,7 @@ class DoctorLoginRemoteDataSourceImpl implements DoctorLoginRemoteDataSource {
     required String password,
   }) async {
     final loginResponse = await http.post(
-      Uri.parse('$_baseUrl/api/auth/login/'),
+      Uri.parse('${ApiConstants.baseUrl}/api/auth/login/'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({'email': email, 'password': password}),
     );

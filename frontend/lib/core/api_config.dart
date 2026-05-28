@@ -1,6 +1,5 @@
+import 'package:shifa/core/constants/api_constants.dart';
+
 class ApiConfig {
-  static const baseUrl = String.fromEnvironment(
-    'SHIFA_API_BASE_URL',
-    defaultValue: 'http://localhost:8000/api',
-  );
+  static String get baseUrl => '${ApiConstants.baseUrl}/api';
 }
