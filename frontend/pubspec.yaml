@@ -30,6 +30,10 @@ dependencies:
   # Persist JWT token and role after login.
   shared_preferences: ^2.2.2
 
+  # ── WebSocket ─────────────────────────────
+  # Real-time messaging for the chat feature.
+  web_socket_channel: ^2.4.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
