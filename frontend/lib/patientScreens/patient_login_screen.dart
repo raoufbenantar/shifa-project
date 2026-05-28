@@ -10,6 +10,7 @@ import 'login_remote_datasource.dart';
 import 'login_repository_impl.dart';
 import 'login_state.dart';
 import 'login_usecase.dart';
+import 'patient_shell.dart';
 
 
 // ─────────────────────────────────────────────────────────────
@@ -163,9 +164,10 @@ class _LoginViewState extends State<_LoginView> {
           duration: const Duration(seconds: 2),
         ),
       );
-      // TODO: Navigator.pushReplacement → PatientHomeScreen
-      // We use pushReplacement so the login screen is removed
-      // from the stack — the user can't go "back" to login.
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const PatientShell()),
+      );
     }
 
     if (state is LoginFailure) {

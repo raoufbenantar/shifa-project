@@ -1,24 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import '../../theme/app_colors.dart';
-import '../../chat/chat_cubit.dart';
-import '../../chat/chat_entity.dart';
-import '../../chat/chat_remote_datasource.dart';
+import '../theme/app_colors.dart';
+import '../chat/chat_cubit.dart';
+import '../chat/chat_entity.dart';
+import '../chat/chat_remote_datasource.dart';
 
-class MessagesScreen extends StatelessWidget {
-  const MessagesScreen({super.key});
+class PatientMessagesScreen extends StatelessWidget {
+  const PatientMessagesScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
       create: (_) => ChatCubit(ChatRemoteDataSourceImpl())..loadRooms(),
-      child: const _MessagesView(),
+      child: const _PatientMessagesView(),
     );
   }
 }
 
-class _MessagesView extends StatelessWidget {
-  const _MessagesView();
+class _PatientMessagesView extends StatelessWidget {
+  const _PatientMessagesView();
 
   @override
   Widget build(BuildContext context) {
@@ -56,7 +56,7 @@ class _MessagesView extends StatelessWidget {
                       fontWeight: FontWeight.w700,
                       fontFamily: 'Inter')),
               SizedBox(height: 2),
-              Text('Patient conversations',
+              Text('Chat with your doctor',
                   style: TextStyle(
                       color: Colors.white70, fontSize: 13, fontFamily: 'Inter')),
             ],
@@ -118,7 +118,7 @@ class _MessagesView extends StatelessWidget {
                           fontFamily: 'Inter',
                           fontSize: 16)),
                   const SizedBox(height: 6),
-                  const Text('Chat with your patients here',
+                  const Text('Your doctor will appear here\nonce you start a consultation',
                       style: TextStyle(
                           color: Color(0xFF9CA3AF),
                           fontFamily: 'Inter',
@@ -146,7 +146,7 @@ class _MessagesView extends StatelessWidget {
                       MaterialPageRoute(
                         builder: (_) => BlocProvider.value(
                           value: ctx.read<ChatCubit>(),
-                          child: ChatScreen(room: room),
+                          child: PatientChatScreen(room: room),
                         ),
                       ),
                     ).then((_) {
@@ -226,7 +226,7 @@ class _ThreadTile extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(room.patientName,
+                  Text(room.doctorName,
                       style: TextStyle(
                           fontFamily: 'Inter',
                           fontWeight: hasUnread
@@ -282,15 +282,15 @@ class _ThreadTile extends StatelessWidget {
   }
 }
 
-class ChatScreen extends StatefulWidget {
+class PatientChatScreen extends StatefulWidget {
   final ChatRoomEntity room;
-  const ChatScreen({super.key, required this.room});
+  const PatientChatScreen({super.key, required this.room});
 
   @override
-  State<ChatScreen> createState() => _ChatScreenState();
+  State<PatientChatScreen> createState() => _PatientChatScreenState();
 }
 
-class _ChatScreenState extends State<ChatScreen> {
+class _PatientChatScreenState extends State<PatientChatScreen> {
   final _controller = TextEditingController();
   final _scrollCtrl = ScrollController();
 
@@ -332,13 +332,13 @@ class _ChatScreenState extends State<ChatScreen> {
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(widget.room.patientName,
+                Text(widget.room.doctorName,
                     style: const TextStyle(
                         fontFamily: 'Inter',
                         fontSize: 15,
                         fontWeight: FontWeight.w600)),
-                Text(widget.room.doctorName,
-                    style: const TextStyle(
+                const Text('Doctor',
+                    style: TextStyle(
                         fontFamily: 'Inter',
                         fontSize: 11,
                         color: Colors.white70)),
