@@ -6,10 +6,11 @@ from django.conf import settings
 from rest_framework_simplejwt.backends import TokenBackend
 
 from doctors.models import DoctorProfile
+from patients.models import PatientProfile
 from appointments.models import Appointment, AppointmentMessage, Review
 from notifications.models import Notification
 from appointments.serializers import AppointmentSerializer, ReviewSerializer
-from users.permissions import IsAdminOrDoctor
+from users.permissions import IsAdminOrDoctor, IsAuthenticated
 
 
 def get_token_data(request):
@@ -128,4 +129,81 @@ class DoctorDashboardView(APIView):
             'recent_reviews': ReviewSerializer(reviews[:5], many=True).data,
             'unread_messages': unread_messages,
             'unread_notifications': unread_notifications,
+        })
+
+
+class PatientDashboardView(APIView):
+
+    def get_permissions(self):
+        return [IsAuthenticated()]
+
+    def get(self, request):
+        token_data = get_token_data(request)
+        if not token_data:
+            return Response({'error': 'Invalid token.'}, status=status.HTTP_401_UNAUTHORIZED)
+
+        user_id = token_data.get('user_id')
+
+        try:
+            patient = PatientProfile.objects.get(user_id=user_id)
+        except PatientProfile.DoesNotExist:
+            return Response({'error': 'Patient profile not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        all_appointments = Appointment.objects.filter(patient=patient)
+
+        total = all_appointments.count()
+        completed = all_appointments.filter(status='completed').count()
+        canceled = all_appointments.filter(status='canceled').count()
+        pending = all_appointments.filter(status='pending').count()
+        confirmed = all_appointments.filter(status='confirmed').count()
+
+        upcoming_appointment = all_appointments.filter(
+            scheduled_datetime__gte=timezone.now(),
+            status__in=['confirmed', 'pending']
+        ).order_by('scheduled_datetime').first()
+
+        from medical_records.models import Prescription
+        recent_prescriptions = Prescription.objects.filter(
+            consultation__medical_record__patient=patient
+        ).select_related(
+            'medication', 'consultation__doctor'
+        ).order_by('-consultation__consultation_date')[:5]
+
+        prescriptions_data = [{
+            'id': p.id,
+            'medication_name': p.medication.name,
+            'dosage': p.dosage,
+            'duration_days': p.duration_days,
+            'doctor_name': p.consultation.doctor.full_name,
+            'date': p.consultation.consultation_date,
+        } for p in recent_prescriptions]
+
+        unread_notifications = Notification.objects.filter(
+            user_id=user_id,
+            is_read=False
+        ).count()
+
+        unread_messages = AppointmentMessage.objects.filter(
+            appointment__patient=patient,
+            is_read=False
+        ).exclude(sender_id=user_id).count()
+
+        return Response({
+            'patient': {
+                'id': patient.id,
+                'full_name': patient.full_name,
+                'phone_number': patient.phone_number,
+                'email': request.user.email,
+            },
+            'stats': {
+                'total_appointments': total,
+                'completed': completed,
+                'canceled': canceled,
+                'pending': pending,
+                'confirmed': confirmed,
+            },
+            'upcoming_appointment': AppointmentSerializer(upcoming_appointment).data if upcoming_appointment else None,
+            'recent_prescriptions': prescriptions_data,
+            'unread_notifications_count': unread_notifications,
+            'unread_messages_count': unread_messages,
         })

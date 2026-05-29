@@ -182,3 +182,6 @@ REST_FRAMEWORK_SPECTACULAR = {
 
 # Fix for drf-spectacular
 REST_FRAMEWORK['DEFAULT_SCHEMA_CLASS'] = 'drf_spectacular.openapi.AutoSchema'
+
+# Firebase Cloud Messaging
+FIREBASE_CREDENTIALS_PATH = BASE_DIR / 'firebase-credentials.json'

@@ -4,6 +4,7 @@ from users.permissions import IsAdminRole, IsAdminOrDoctor, IsAuthenticated
 from .models import MedicalRecord, Consultation, Diagnosis, Medication, Prescription, Attachment
 from .serializers import (MedicalRecordSerializer, ConsultationSerializer,
     DiagnosisSerializer, MedicationSerializer, PrescriptionSerializer, AttachmentSerializer)
+from .permissions import IsAdminOrDoctorOrPatientOwner
 
 
 class MedicalRecordViewSet(viewsets.ModelViewSet):
@@ -13,7 +14,17 @@ class MedicalRecordViewSet(viewsets.ModelViewSet):
     filterset_fields = ['patient']
 
     def get_permissions(self):
-        return [IsAdminOrDoctor()]
+        return [IsAdminOrDoctorOrPatientOwner()]
+
+    def get_queryset(self):
+        user = self.request.user
+        role_name = getattr(user.role, 'name', '')
+        if role_name in ['admin', 'doctor']:
+            return MedicalRecord.objects.all()
+        patient = getattr(user, 'patient_profile', None)
+        if patient:
+            return MedicalRecord.objects.filter(patient=patient)
+        return MedicalRecord.objects.none()
 
 
 class ConsultationViewSet(viewsets.ModelViewSet):
@@ -23,7 +34,17 @@ class ConsultationViewSet(viewsets.ModelViewSet):
     filterset_fields = ['doctor', 'medical_record']
 
     def get_permissions(self):
-        return [IsAdminOrDoctor()]
+        return [IsAdminOrDoctorOrPatientOwner()]
+
+    def get_queryset(self):
+        user = self.request.user
+        role_name = getattr(user.role, 'name', '')
+        if role_name in ['admin', 'doctor']:
+            return Consultation.objects.all()
+        patient = getattr(user, 'patient_profile', None)
+        if patient:
+            return Consultation.objects.filter(medical_record__patient=patient)
+        return Consultation.objects.none()
 
 
 class DiagnosisViewSet(viewsets.ModelViewSet):
@@ -33,7 +54,17 @@ class DiagnosisViewSet(viewsets.ModelViewSet):
     filterset_fields = ['consultation']
 
     def get_permissions(self):
-        return [IsAdminOrDoctor()]
+        return [IsAdminOrDoctorOrPatientOwner()]
+
+    def get_queryset(self):
+        user = self.request.user
+        role_name = getattr(user.role, 'name', '')
+        if role_name in ['admin', 'doctor']:
+            return Diagnosis.objects.all()
+        patient = getattr(user, 'patient_profile', None)
+        if patient:
+            return Diagnosis.objects.filter(consultation__medical_record__patient=patient)
+        return Diagnosis.objects.none()
 
 
 class MedicationViewSet(viewsets.ModelViewSet):
@@ -55,7 +86,19 @@ class PrescriptionViewSet(viewsets.ModelViewSet):
     filterset_fields = ['consultation', 'medication']
 
     def get_permissions(self):
-        return [IsAdminOrDoctor()]
+        return [IsAdminOrDoctorOrPatientOwner()]
+
+    def get_queryset(self):
+        user = self.request.user
+        role_name = getattr(user.role, 'name', '')
+        if role_name in ['admin', 'doctor']:
+            return Prescription.objects.all()
+        patient = getattr(user, 'patient_profile', None)
+        if patient:
+            return Prescription.objects.filter(
+                consultation__medical_record__patient=patient
+            )
+        return Prescription.objects.none()
 
 
 class AttachmentViewSet(viewsets.ModelViewSet):
@@ -65,4 +108,16 @@ class AttachmentViewSet(viewsets.ModelViewSet):
     filterset_fields = ['consultation']
 
     def get_permissions(self):
-        return [IsAdminOrDoctor()]
+        return [IsAdminOrDoctorOrPatientOwner()]
+
+    def get_queryset(self):
+        user = self.request.user
+        role_name = getattr(user.role, 'name', '')
+        if role_name in ['admin', 'doctor']:
+            return Attachment.objects.all()
+        patient = getattr(user, 'patient_profile', None)
+        if patient:
+            return Attachment.objects.filter(
+                consultation__medical_record__patient=patient
+            )
+        return Attachment.objects.none()
