@@ -10,7 +10,7 @@ class PatientProfileBloc
   final UpdatePatientProfileUseCase _updateUseCase;
 
   PatientProfileBloc(this._getUseCase, this._updateUseCase)
-      : super(const PatientProfileInitial()) {
+      : super(PatientProfileInitial()) {
     on<LoadPatientProfile>(_onLoad);
     on<UpdatePatientProfileField>(_onUpdateField);
     on<SavePatientProfile>(_onSave);
@@ -21,7 +21,7 @@ class PatientProfileBloc
     LoadPatientProfile event,
     Emitter<PatientProfileState> emit,
   ) async {
-    emit(const PatientProfileLoading());
+    emit(PatientProfileLoading());
     try {
       final profile = await _getUseCase();
       emit(PatientProfileLoaded(profile));
@@ -51,9 +51,8 @@ class PatientProfileBloc
         dateOfBirth: event.field.name == 'dateOfBirth'
             ? event.value
             : current.profile.dateOfBirth,
-        gender: event.field.name == 'gender'
-            ? event.value
-            : current.profile.gender,
+        gender:
+            event.field.name == 'gender' ? event.value : current.profile.gender,
       );
       emit(PatientProfileLoaded(updated, isEditing: true));
     }

@@ -3,11 +3,11 @@ import 'patient_profile_entity.dart';
 abstract class PatientProfileState {}
 
 class PatientProfileInitial extends PatientProfileState {
-  const PatientProfileInitial();
+  PatientProfileInitial();
 }
 
 class PatientProfileLoading extends PatientProfileState {
-  const PatientProfileLoading();
+  PatientProfileLoading();
 }
 
 class PatientProfileLoaded extends PatientProfileState {

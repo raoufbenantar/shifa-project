@@ -28,7 +28,7 @@ class PatientProfileScreen extends StatelessWidget {
             PatientProfileRemoteDataSourceImpl(),
           ),
         ),
-      )..add(const LoadPatientProfile()),
+      )..add(LoadPatientProfile()),
       child: const _ProfileView(),
     );
   }
@@ -92,7 +92,7 @@ class _ProfileView extends StatelessWidget {
                     ElevatedButton.icon(
                       onPressed: () => context
                           .read<PatientProfileBloc>()
-                          .add(const LoadPatientProfile()),
+                          .add(LoadPatientProfile()),
                       style: ElevatedButton.styleFrom(
                           backgroundColor: AppColors.primary,
                           foregroundColor: Colors.white,
@@ -108,13 +108,18 @@ class _ProfileView extends StatelessWidget {
           );
         }
         if (state is PatientProfileLoaded) {
-          return _ProfileForm(profile: state.profile, isEditing: state.isEditing, isSaving: false);
+          return _ProfileForm(
+              profile: state.profile,
+              isEditing: state.isEditing,
+              isSaving: false);
         }
         if (state is PatientProfileSaving) {
-          return _ProfileForm(profile: state.profile, isEditing: true, isSaving: true);
+          return _ProfileForm(
+              profile: state.profile, isEditing: true, isSaving: true);
         }
         if (state is PatientProfileSaveFailure) {
-          return _ProfileForm(profile: state.profile, isEditing: true, isSaving: false);
+          return _ProfileForm(
+              profile: state.profile, isEditing: true, isSaving: false);
         }
         return const Scaffold(body: SizedBox());
       },
@@ -173,8 +178,8 @@ class _ProfileForm extends StatelessWidget {
               child: Align(
                 alignment: Alignment.bottomLeft,
                 child: Text('My Profile',
-                    style: AppTextStyles.loginTitle
-                        .copyWith(color: Colors.white)),
+                    style:
+                        AppTextStyles.loginTitle.copyWith(color: Colors.white)),
               ),
             ),
           ),
@@ -417,8 +422,8 @@ class _ProfileForm extends StatelessWidget {
                       : genderValue == 'F'
                           ? 'Female'
                           : '—',
-                  style: AppTextStyles.fieldLabel.copyWith(
-                      fontSize: 16, color: const Color(0xFF111827))),
+                  style: AppTextStyles.fieldLabel
+                      .copyWith(fontSize: 16, color: const Color(0xFF111827))),
         ],
       ),
     );
@@ -431,9 +436,7 @@ class _ProfileForm extends StatelessWidget {
         if (isEditing)
           Expanded(
             child: OutlinedButton(
-              onPressed: saving
-                  ? null
-                  : () => bloc.add(const ToggleEditMode(false)),
+              onPressed: saving ? null : () => bloc.add(ToggleEditMode(false)),
               style: OutlinedButton.styleFrom(
                 foregroundColor: AppColors.primary,
                 side: const BorderSide(color: AppColors.primary),
@@ -453,9 +456,9 @@ class _ProfileForm extends StatelessWidget {
                 ? null
                 : () {
                     if (isEditing) {
-                      bloc.add(const SavePatientProfile());
+                      bloc.add(SavePatientProfile());
                     } else {
-                      bloc.add(const ToggleEditMode(true));
+                      bloc.add(ToggleEditMode(true));
                     }
                   },
             style: ElevatedButton.styleFrom(
