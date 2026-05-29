@@ -1,12 +1,12 @@
 from rest_framework import viewsets, status
-from rest_framework.decorators import action
+from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.response import Response
 from users.permissions import IsAuthenticated
 from users.permissions import get_role_from_request
 from rest_framework_simplejwt.backends import TokenBackend
 from django.conf import settings
-from .models import Notification
-from .serializers import NotificationSerializer
+from .models import Notification, DeviceToken
+from .serializers import NotificationSerializer, DeviceTokenSerializer
 
 
 def get_user_id_from_request(request):
@@ -50,3 +50,39 @@ class NotificationViewSet(viewsets.ReadOnlyModelViewSet):
         user_id = get_user_id_from_request(request)
         count = Notification.objects.filter(user_id=user_id, is_read=False).count()
         return Response({'unread_count': count})
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def register_device_token(request):
+    serializer = DeviceTokenSerializer(data=request.data)
+    if not serializer.is_valid():
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    token_obj, created = DeviceToken.objects.update_or_create(
+        token=serializer.validated_data['token'],
+        defaults={
+            'user': request.user,
+            'platform': serializer.validated_data['platform'],
+            'is_active': True,
+        }
+    )
+    return Response({
+        'message': 'Token registered successfully',
+        'token_id': token_obj.id,
+    }, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def unregister_device_token(request):
+    serializer = DeviceTokenSerializer(data=request.data)
+    if not serializer.is_valid():
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    DeviceToken.objects.filter(
+        token=serializer.validated_data['token'],
+        user=request.user,
+    ).update(is_active=False)
+
+    return Response({'message': 'Token unregistered successfully'})

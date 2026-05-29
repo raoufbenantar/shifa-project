@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
 import 'patient_home_screen.dart';
 import 'patient_messages_screen.dart';
+import 'patient_profile/patient_profile_screen.dart';
 import 'booking/doctor_list_screen.dart';
 import 'booking/my_appointments_screen.dart';
 
@@ -20,6 +21,7 @@ class _PatientShellState extends State<PatientShell> {
     DoctorListScreen(),
     MyAppointmentsScreen(),
     PatientMessagesScreen(),
+    PatientProfileScreen(),
   ];
 
   static const _items = [
@@ -42,6 +44,11 @@ class _PatientShellState extends State<PatientShell> {
       icon: Icon(Icons.chat_bubble_outline_rounded),
       activeIcon: Icon(Icons.chat_bubble_rounded),
       label: 'Messages',
+    ),
+    BottomNavigationBarItem(
+      icon: Icon(Icons.person_outline_rounded),
+      activeIcon: Icon(Icons.person_rounded),
+      label: 'Profile',
     ),
   ];
 

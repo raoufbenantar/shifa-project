@@ -14,6 +14,7 @@ class ApiConstants {
 
   // Dashboard
   static const String doctorDashboard = '$baseUrl/api/dashboard/doctor/';
+  static const String patientDashboard = '$baseUrl/api/dashboard/patient/';
 
   // Appointments
   static const String appointments    = '$baseUrl/api/appointments/';
@@ -26,6 +27,8 @@ class ApiConstants {
   static const String notifications  = '$baseUrl/api/notifications/';
   static const String unreadCount    = '$baseUrl/api/notifications/unread_count/';
   static const String readAllNotifs  = '$baseUrl/api/notifications/read_all/';
+  static const String registerDeviceToken = '$baseUrl/api/notifications/register-token/';
+  static const String unregisterDeviceToken = '$baseUrl/api/notifications/unregister-token/';
 
   // Reviews
   static const String reviews = '$baseUrl/api/reviews/';
@@ -37,4 +40,10 @@ class ApiConstants {
   static const String doctors  = '$baseUrl/api/doctors/';
   static const String clinics  = '$baseUrl/api/clinics/';
   static const String patients = '$baseUrl/api/patients/';
+  static const String patientProfile = '$baseUrl/api/patients/me/';
+
+  // Medical Records
+  static const String medicalRecords  = '$baseUrl/api/medical-records/';
+  static const String consultations   = '$baseUrl/api/consultations/';
+  static const String prescriptions   = '$baseUrl/api/prescriptions/';
 }

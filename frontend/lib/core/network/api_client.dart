@@ -75,6 +75,11 @@ class ApiClient {
     return prefs.getInt('doctor_id');
   }
 
+  Future<int?> getPatientId() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getInt('patient_id');
+  }
+
   Future<int?> getUserId() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getInt('user_id');
