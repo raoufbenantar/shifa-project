@@ -35,5 +35,6 @@ class ApiConstants {
 
   // Doctors / Patients
   static const String doctors  = '$baseUrl/api/doctors/';
+  static const String clinics  = '$baseUrl/api/clinics/';
   static const String patients = '$baseUrl/api/patients/';
 }

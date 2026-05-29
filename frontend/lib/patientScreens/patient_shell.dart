@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
 import 'patient_home_screen.dart';
 import 'patient_messages_screen.dart';
+import 'booking/doctor_list_screen.dart';
+import 'booking/my_appointments_screen.dart';
 
 class PatientShell extends StatefulWidget {
   const PatientShell({super.key});
@@ -15,6 +17,8 @@ class _PatientShellState extends State<PatientShell> {
 
   final List<Widget> _screens = const [
     PatientHomeScreen(),
+    DoctorListScreen(),
+    MyAppointmentsScreen(),
     PatientMessagesScreen(),
   ];
 
@@ -23,6 +27,16 @@ class _PatientShellState extends State<PatientShell> {
       icon: Icon(Icons.home_outlined),
       activeIcon: Icon(Icons.home_rounded),
       label: 'Home',
+    ),
+    BottomNavigationBarItem(
+      icon: Icon(Icons.search_rounded),
+      activeIcon: Icon(Icons.search_rounded),
+      label: 'Find Doctor',
+    ),
+    BottomNavigationBarItem(
+      icon: Icon(Icons.calendar_month_outlined),
+      activeIcon: Icon(Icons.calendar_month_rounded),
+      label: 'Appointments',
     ),
     BottomNavigationBarItem(
       icon: Icon(Icons.chat_bubble_outline_rounded),
